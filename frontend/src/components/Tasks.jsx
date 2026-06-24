@@ -11,6 +11,10 @@ function timeAgo(dateStr) {
   return `${Math.floor(diff / 86400)}d ago`;
 }
 
+function lastUpdated(task) {
+  return timeAgo(task.updated_at || task.created_at);
+}
+
 const STATUSES = ['all', 'todo', 'in-progress', 'done'];
 const PRIORITIES = ['all', 'high', 'medium', 'low'];
 const STATUS_CYCLE = { todo: 'in-progress', 'in-progress': 'done', done: 'todo' };
@@ -269,7 +273,7 @@ export default function Tasks() {
                 <button className={`status-btn ${t.status}`} onClick={() => cycleStatus(t)} title="Click to advance status">
                   {t.status === 'todo' ? 'To Do' : t.status === 'in-progress' ? 'In Progress' : 'Done'}
                 </button>
-                <span className="cell-muted">{timeAgo(t.updated_at)}</span>
+                <span className="cell-muted">{lastUpdated(t)}</span>
                 <div className="row-actions">
                   <button className="action-btn edit" onClick={() => startEdit(t)} title="Edit">✎</button>
                   <button className="action-btn delete" onClick={() => deleteTask(t.id)} title="Delete">✕</button>
