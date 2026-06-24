@@ -1,7 +1,8 @@
-import { tasks, events, driveFiles } from '../data';
+import { useState, useEffect } from 'react';
+import { events, driveFiles } from '../data';
 import './Dashboard.css';
 
-const today = '2026-06-23';
+const today = new Date().toISOString().split('T')[0];
 
 function fileIcon(type) {
   if (type === 'presentation') return '📊';
@@ -12,6 +13,15 @@ function fileIcon(type) {
 }
 
 export default function Dashboard() {
+  const [tasks, setTasks] = useState([]);
+
+  useEffect(() => {
+    fetch('/api/tasks')
+      .then(r => r.json())
+      .then(setTasks)
+      .catch(() => {});
+  }, []);
+
   const total = tasks.length;
   const done = tasks.filter(t => t.status === 'done').length;
   const inProgress = tasks.filter(t => t.status === 'in-progress').length;
@@ -27,7 +37,7 @@ export default function Dashboard() {
       <div className="page-header">
         <div>
           <h1>Dashboard</h1>
-          <p className="page-sub">Monday, June 23 — Good morning</p>
+          <p className="page-sub">{new Date().toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric' })} — Good morning</p>
         </div>
       </div>
 
@@ -56,18 +66,22 @@ export default function Dashboard() {
             <h2>Active Tasks</h2>
             <span className="badge">{activeTasks.length}</span>
           </div>
-          <ul className="task-list">
-            {activeTasks.map(t => (
-              <li key={t.id} className="task-row">
-                <span className={`status-dot ${t.status}`} />
-                <div className="task-info">
-                  <span className="task-title">{t.title}</span>
-                  <span className="task-meta">{t.project} · {t.assignee}</span>
-                </div>
-                <span className={`priority-chip ${t.priority}`}>{t.priority}</span>
-              </li>
-            ))}
-          </ul>
+          {activeTasks.length === 0 ? (
+            <p className="empty-state">No active tasks.</p>
+          ) : (
+            <ul className="task-list">
+              {activeTasks.map(t => (
+                <li key={t.id} className="task-row">
+                  <span className={`status-dot ${t.status}`} />
+                  <div className="task-info">
+                    <span className="task-title">{t.title}</span>
+                    <span className="task-meta">{t.project || 'No project'} · {t.assignee || 'Unassigned'}</span>
+                  </div>
+                  <span className={`priority-chip ${t.priority}`}>{t.priority}</span>
+                </li>
+              ))}
+            </ul>
+          )}
         </section>
 
         <section className="card">
