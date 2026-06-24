@@ -1,0 +1,160 @@
+.dashboard { padding: 28px 32px; max-width: 1100px; }
+
+.page-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  margin-bottom: 24px;
+}
+
+.page-header h1 { font-size: 22px; font-weight: 600; color: var(--text); }
+.page-sub { color: var(--text-muted); font-size: 13px; margin-top: 2px; }
+
+.stat-cards {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 16px;
+  margin-bottom: 24px;
+}
+
+.stat-card {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 18px 20px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  box-shadow: var(--shadow);
+}
+
+.stat-card.accent { border-left: 3px solid var(--accent); }
+.stat-card.success { border-left: 3px solid var(--success); }
+
+.stat-label { font-size: 12px; color: var(--text-muted); font-weight: 500; text-transform: uppercase; letter-spacing: .5px; }
+.stat-value { font-size: 28px; font-weight: 700; color: var(--text); }
+
+.dashboard-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 16px;
+}
+
+.card {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 20px;
+  box-shadow: var(--shadow);
+}
+
+.card.span-full { grid-column: 1 / -1; }
+
+.card-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 16px;
+}
+
+.card-header h2 { font-size: 14px; font-weight: 600; color: var(--text); }
+
+.badge {
+  background: var(--accent-light);
+  color: var(--accent);
+  font-size: 11px;
+  font-weight: 600;
+  padding: 2px 8px;
+  border-radius: 20px;
+}
+
+.text-link { font-size: 12px; color: var(--accent); cursor: pointer; }
+.text-link:hover { text-decoration: underline; }
+
+/* task list */
+.task-list { list-style: none; display: flex; flex-direction: column; gap: 10px; }
+
+.task-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.status-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+.status-dot.todo { background: var(--border); border: 2px solid #aaa; }
+.status-dot.in-progress { background: var(--accent); }
+.status-dot.done { background: var(--success); }
+
+.task-info { flex: 1; min-width: 0; }
+.task-title { display: block; font-size: 13px; font-weight: 500; color: var(--text); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.task-meta { display: block; font-size: 11px; color: var(--text-muted); margin-top: 1px; }
+
+.priority-chip {
+  font-size: 10px;
+  font-weight: 600;
+  padding: 2px 8px;
+  border-radius: 20px;
+  flex-shrink: 0;
+  text-transform: uppercase;
+  letter-spacing: .4px;
+}
+.priority-chip.high { background: #fef2f2; color: var(--danger); }
+.priority-chip.medium { background: #fffbeb; color: var(--warning); }
+.priority-chip.low { background: #f0fdf4; color: var(--success); }
+
+/* events */
+.event-list { list-style: none; display: flex; flex-direction: column; gap: 12px; }
+
+.event-row { display: flex; align-items: center; gap: 14px; }
+
+.event-date-col {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  width: 52px;
+  flex-shrink: 0;
+  background: var(--bg);
+  border-radius: 8px;
+  padding: 6px 4px;
+}
+
+.event-day { font-size: 11px; font-weight: 600; color: var(--text); }
+.event-time { font-size: 10px; color: var(--text-muted); margin-top: 2px; }
+
+.event-details { display: flex; flex-direction: column; gap: 3px; }
+.event-title { font-size: 13px; font-weight: 500; color: var(--text); }
+
+.event-type {
+  font-size: 10px;
+  font-weight: 500;
+  padding: 1px 6px;
+  border-radius: 10px;
+  width: fit-content;
+  text-transform: capitalize;
+}
+.event-type.meeting { background: var(--accent-light); color: var(--accent); }
+.event-type.recurring { background: #f0fdf4; color: var(--success); }
+
+/* files */
+.files-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 10px; }
+
+.file-card {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 12px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--bg);
+}
+
+.file-icon { font-size: 22px; flex-shrink: 0; }
+.file-info { flex: 1; min-width: 0; }
+.file-name { display: block; font-size: 13px; font-weight: 500; color: var(--text); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.file-meta { display: block; font-size: 11px; color: var(--text-muted); margin-top: 2px; }
+.file-size { font-size: 11px; color: var(--text-muted); flex-shrink: 0; }
