@@ -5,7 +5,7 @@ const STATUSES = ['all', 'todo', 'in-progress', 'done'];
 const PRIORITIES = ['all', 'high', 'medium', 'low'];
 const STATUS_CYCLE = { todo: 'in-progress', 'in-progress': 'done', done: 'todo' };
 
-const EMPTY_FORM = { title: '', priority: 'medium', assignee: '', due: '', project: '' };
+const EMPTY_FORM = { title: '', priority: 'medium', owner: '', due: '', project: '', description: '' };
 
 export default function Tasks() {
   const [tasks, setTasks] = useState([]);
@@ -26,10 +26,10 @@ export default function Tasks() {
     try {
       setLoading(true);
       const res = await fetch('/api/tasks');
-      if (!res.ok) throw new Error('Failed to fetch tasks');
+      if (!res.ok) throw new Error();
       setTasks(await res.json());
       setError(null);
-    } catch (e) {
+    } catch {
       setError('Could not connect to server. Make sure the backend is running.');
     } finally {
       setLoading(false);
@@ -106,7 +106,7 @@ export default function Tasks() {
 
   function startEdit(task) {
     setEditingId(task.id);
-    setEditForm({ title: task.title, priority: task.priority, assignee: task.assignee, project: task.project, due: task.due });
+    setEditForm({ title: task.title, priority: task.priority, owner: task.owner, project: task.project, due: task.due, description: task.description });
   }
 
   const filtered = tasks.filter(t => {
@@ -146,10 +146,17 @@ export default function Tasks() {
             </select>
           </div>
           <div className="form-row">
-            <input className="form-input flex-1" placeholder="Assignee" value={form.assignee} onChange={e => setForm(f => ({ ...f, assignee: e.target.value }))} />
+            <input className="form-input flex-1" placeholder="Owner" value={form.owner} onChange={e => setForm(f => ({ ...f, owner: e.target.value }))} />
             <input className="form-input flex-1" placeholder="Project" value={form.project} onChange={e => setForm(f => ({ ...f, project: e.target.value }))} />
             <input className="form-input" type="date" value={form.due} onChange={e => setForm(f => ({ ...f, due: e.target.value }))} />
           </div>
+          <textarea
+            className="form-input form-textarea"
+            placeholder="Description (optional)"
+            value={form.description}
+            onChange={e => setForm(f => ({ ...f, description: e.target.value }))}
+            rows={3}
+          />
           <button type="submit" className="btn-primary" disabled={saving}>
             {saving ? 'Adding...' : 'Add Task'}
           </button>
@@ -180,7 +187,7 @@ export default function Tasks() {
         <div className="table-head">
           <span>Task</span>
           <span>Project</span>
-          <span>Assignee</span>
+          <span>Owner</span>
           <span>Due</span>
           <span>Priority</span>
           <span>Status</span>
@@ -194,29 +201,44 @@ export default function Tasks() {
         )}
 
         {filtered.map(t => (
-          <div key={t.id} className="table-row">
+          <div key={t.id} className="task-row-wrapper">
             {editingId === t.id ? (
-              <>
-                <input className="form-input flex-1" value={editForm.title} onChange={e => setEditForm(f => ({ ...f, title: e.target.value }))} autoFocus />
-                <input className="form-input" value={editForm.project} onChange={e => setEditForm(f => ({ ...f, project: e.target.value }))} placeholder="Project" />
-                <input className="form-input" value={editForm.assignee} onChange={e => setEditForm(f => ({ ...f, assignee: e.target.value }))} placeholder="Assignee" />
-                <input className="form-input" type="date" value={editForm.due} onChange={e => setEditForm(f => ({ ...f, due: e.target.value }))} />
-                <select className="form-input" value={editForm.priority} onChange={e => setEditForm(f => ({ ...f, priority: e.target.value }))}>
-                  <option value="high">High</option>
-                  <option value="medium">Medium</option>
-                  <option value="low">Low</option>
-                </select>
-                <span />
-                <div className="row-actions">
-                  <button className="action-btn save" onClick={() => saveEdit(t.id)} disabled={saving}>Save</button>
-                  <button className="action-btn cancel" onClick={() => setEditingId(null)}>✕</button>
+              <div className="table-row edit-row">
+                <div className="edit-main">
+                  <div className="form-row">
+                    <input className="form-input flex-1" value={editForm.title} onChange={e => setEditForm(f => ({ ...f, title: e.target.value }))} autoFocus placeholder="Title" />
+                    <select className="form-input" value={editForm.priority} onChange={e => setEditForm(f => ({ ...f, priority: e.target.value }))}>
+                      <option value="high">High</option>
+                      <option value="medium">Medium</option>
+                      <option value="low">Low</option>
+                    </select>
+                  </div>
+                  <div className="form-row">
+                    <input className="form-input flex-1" value={editForm.owner} onChange={e => setEditForm(f => ({ ...f, owner: e.target.value }))} placeholder="Owner" />
+                    <input className="form-input flex-1" value={editForm.project} onChange={e => setEditForm(f => ({ ...f, project: e.target.value }))} placeholder="Project" />
+                    <input className="form-input" type="date" value={editForm.due} onChange={e => setEditForm(f => ({ ...f, due: e.target.value }))} />
+                  </div>
+                  <textarea
+                    className="form-input form-textarea"
+                    value={editForm.description}
+                    onChange={e => setEditForm(f => ({ ...f, description: e.target.value }))}
+                    placeholder="Description"
+                    rows={2}
+                  />
+                  <div className="row-actions">
+                    <button className="action-btn save" onClick={() => saveEdit(t.id)} disabled={saving}>Save</button>
+                    <button className="action-btn cancel" onClick={() => setEditingId(null)}>Cancel</button>
+                  </div>
                 </div>
-              </>
+              </div>
             ) : (
-              <>
-                <span className="task-title-cell">{t.title}</span>
+              <div className="table-row">
+                <div className="task-title-cell">
+                  <span className="task-title-text">{t.title}</span>
+                  {t.description && <span className="task-desc">{t.description}</span>}
+                </div>
                 <span className="cell-muted">{t.project || '—'}</span>
-                <span className="cell-muted">{t.assignee || '—'}</span>
+                <span className="cell-muted">{t.owner || '—'}</span>
                 <span className="cell-muted">{t.due || '—'}</span>
                 <span className={`priority-chip ${t.priority}`}>{t.priority}</span>
                 <button className={`status-btn ${t.status}`} onClick={() => cycleStatus(t)} title="Click to advance status">
@@ -226,7 +248,7 @@ export default function Tasks() {
                   <button className="action-btn edit" onClick={() => startEdit(t)} title="Edit">✎</button>
                   <button className="action-btn delete" onClick={() => deleteTask(t.id)} title="Delete">✕</button>
                 </div>
-              </>
+              </div>
             )}
           </div>
         ))}

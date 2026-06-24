@@ -75,7 +75,7 @@ export default function Dashboard() {
                   <span className={`status-dot ${t.status}`} />
                   <div className="task-info">
                     <span className="task-title">{t.title}</span>
-                    <span className="task-meta">{t.project || 'No project'} · {t.assignee || 'Unassigned'}</span>
+                    <span className="task-meta">{t.project || 'No project'} · {t.owner || 'Unassigned'}</span>
                   </div>
                   <span className={`priority-chip ${t.priority}`}>{t.priority}</span>
                 </li>

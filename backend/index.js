@@ -12,31 +12,32 @@ app.get('/api/tasks', (req, res) => {
 });
 
 app.post('/api/tasks', (req, res) => {
-  const { title, status = 'todo', priority = 'medium', assignee = '', project = '', due = '' } = req.body;
+  const { title, status = 'todo', priority = 'medium', owner = '', project = '', due = '', description = '' } = req.body;
   if (!title?.trim()) return res.status(400).json({ error: 'Title is required' });
   const result = db.prepare(
-    'INSERT INTO tasks (title, status, priority, assignee, project, due) VALUES (?, ?, ?, ?, ?, ?)'
-  ).run(title.trim(), status, priority, assignee, project, due);
+    'INSERT INTO tasks (title, status, priority, owner, project, due, description) VALUES (?, ?, ?, ?, ?, ?, ?)'
+  ).run(title.trim(), status, priority, owner, project, due, description);
   const task = db.prepare('SELECT * FROM tasks WHERE id = ?').get(result.lastInsertRowid);
   res.status(201).json(task);
 });
 
 app.patch('/api/tasks/:id', (req, res) => {
   const { id } = req.params;
-  const { title, status, priority, assignee, project, due } = req.body;
+  const { title, status, priority, owner, project, due, description } = req.body;
   const task = db.prepare('SELECT * FROM tasks WHERE id = ?').get(id);
   if (!task) return res.status(404).json({ error: 'Task not found' });
-  const updated = db.prepare(`
+  db.prepare(`
     UPDATE tasks SET
-      title = ?, status = ?, priority = ?, assignee = ?, project = ?, due = ?
+      title = ?, status = ?, priority = ?, owner = ?, project = ?, due = ?, description = ?
     WHERE id = ?
   `).run(
     title ?? task.title,
     status ?? task.status,
     priority ?? task.priority,
-    assignee ?? task.assignee,
+    owner ?? task.owner,
     project ?? task.project,
     due ?? task.due,
+    description ?? task.description,
     id
   );
   res.json(db.prepare('SELECT * FROM tasks WHERE id = ?').get(id));
