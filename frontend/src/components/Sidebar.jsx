@@ -12,7 +12,10 @@ export default function Sidebar({ active, onNav }) {
     <aside className="sidebar">
       <div className="sidebar-logo">
         <span className="logo-mark">PM</span>
-        <span className="logo-text">TeamSpace</span>
+        <div>
+          <span className="logo-text">TeamSpace</span>
+          <span className="logo-sub">Urban Futures Lab</span>
+        </div>
       </div>
       <nav className="sidebar-nav">
         {nav.map(item => (

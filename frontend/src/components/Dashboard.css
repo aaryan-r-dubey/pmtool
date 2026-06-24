@@ -103,9 +103,9 @@
   text-transform: uppercase;
   letter-spacing: .4px;
 }
-.priority-chip.high { background: #fef2f2; color: var(--danger); }
-.priority-chip.medium { background: #fffbeb; color: var(--warning); }
-.priority-chip.low { background: #f0fdf4; color: var(--success); }
+.priority-chip.high { background: #f9e8e6; color: #a83228; }
+.priority-chip.medium { background: #f5edda; color: #8a5c0a; }
+.priority-chip.low { background: #e0eeeb; color: var(--success); }
 
 /* events */
 .event-list { list-style: none; display: flex; flex-direction: column; gap: 12px; }
@@ -138,7 +138,7 @@
   text-transform: capitalize;
 }
 .event-type.meeting { background: var(--accent-light); color: var(--accent); }
-.event-type.recurring { background: #f0fdf4; color: var(--success); }
+.event-type.recurring { background: #e0eeeb; color: var(--success); }
 
 /* files */
 .files-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 10px; }

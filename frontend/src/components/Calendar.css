@@ -81,7 +81,7 @@
   text-overflow: ellipsis;
 }
 .cal-event-chip.meeting { background: var(--accent-light); color: var(--accent); }
-.cal-event-chip.recurring { background: #f0fdf4; color: var(--success); }
+.cal-event-chip.recurring { background: #e0eeeb; color: var(--success); }
 
 .more-chip { font-size: 9px; color: var(--text-muted); }
 
