@@ -115,6 +115,7 @@
 
 .task-title-cell { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
 .task-title-text { font-size: 13px; font-weight: 500; color: var(--text); }
+.task-title-link:hover { color: var(--accent); text-decoration: underline; }
 .task-desc { font-size: 11px; color: var(--text-muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .cell-muted { font-size: 12px; color: var(--text-muted); }
 

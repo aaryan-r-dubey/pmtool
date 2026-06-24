@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+import TaskDetail from './TaskDetail';
 import './Tasks.css';
 
 function timeAgo(dateStr) {
@@ -28,6 +29,7 @@ export default function Tasks() {
   const [editingId, setEditingId] = useState(null);
   const [editForm, setEditForm] = useState({});
   const [saving, setSaving] = useState(false);
+  const [selectedTask, setSelectedTask] = useState(null);
 
   useEffect(() => { fetchTasks(); }, []);
 
@@ -124,6 +126,19 @@ export default function Tasks() {
     if (search && !t.title.toLowerCase().includes(search.toLowerCase())) return false;
     return true;
   });
+
+  if (selectedTask) {
+    return (
+      <TaskDetail
+        task={selectedTask}
+        onBack={() => setSelectedTask(null)}
+        onUpdate={updated => {
+          setTasks(prev => prev.map(t => t.id === updated.id ? updated : t));
+          setSelectedTask(updated);
+        }}
+      />
+    );
+  }
 
   return (
     <div className="tasks-page">
@@ -243,8 +258,8 @@ export default function Tasks() {
               </div>
             ) : (
               <div className="table-row">
-                <div className="task-title-cell">
-                  <span className="task-title-text">{t.title}</span>
+                <div className="task-title-cell" onClick={() => setSelectedTask(t)} style={{cursor:'pointer'}}>
+                  <span className="task-title-text task-title-link">{t.title}</span>
                   {t.description && <span className="task-desc">{t.description}</span>}
                 </div>
                 <span className="cell-muted">{t.project || '—'}</span>
