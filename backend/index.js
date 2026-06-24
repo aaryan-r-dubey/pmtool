@@ -28,7 +28,8 @@ app.patch('/api/tasks/:id', (req, res) => {
   if (!task) return res.status(404).json({ error: 'Task not found' });
   db.prepare(`
     UPDATE tasks SET
-      title = ?, status = ?, priority = ?, owner = ?, project = ?, due = ?, description = ?
+      title = ?, status = ?, priority = ?, owner = ?, project = ?, due = ?, description = ?,
+      updated_at = datetime('now')
     WHERE id = ?
   `).run(
     title ?? task.title,

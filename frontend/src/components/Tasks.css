@@ -94,7 +94,7 @@
 
 .table-head, .table-row {
   display: grid;
-  grid-template-columns: 2fr 1fr 1fr 1fr 90px 100px 72px;
+  grid-template-columns: 2fr 1fr 1fr 1fr 90px 100px 100px 72px;
   align-items: center;
   gap: 12px;
   padding: 10px 16px;

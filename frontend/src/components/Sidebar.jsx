@@ -3,6 +3,7 @@ import './Sidebar.css';
 const nav = [
   { key: 'dashboard', label: 'Dashboard', icon: '⊞' },
   { key: 'tasks', label: 'Tasks', icon: '✓' },
+  { key: 'pending', label: 'Pending Tasks', icon: '◷' },
   { key: 'calendar', label: 'Calendar', icon: '◻' },
   { key: 'files', label: 'Drive Files', icon: '◈' },
 ];
@@ -17,6 +18,7 @@ export default function Sidebar({ active, onNav }) {
           <span className="logo-sub">Urban Futures Lab</span>
         </div>
       </div>
+
       <nav className="sidebar-nav">
         {nav.map(item => (
           <button
@@ -29,6 +31,7 @@ export default function Sidebar({ active, onNav }) {
           </button>
         ))}
       </nav>
+
       <div className="sidebar-footer">
         <div className="avatar">SL</div>
         <div className="sidebar-user">

@@ -1,6 +1,15 @@
 import { useState, useEffect } from 'react';
 import './Tasks.css';
 
+function timeAgo(dateStr) {
+  if (!dateStr) return '—';
+  const diff = Math.floor((Date.now() - new Date(dateStr + 'Z')) / 1000);
+  if (diff < 60) return 'just now';
+  if (diff < 3600) return `${Math.floor(diff / 60)}m ago`;
+  if (diff < 86400) return `${Math.floor(diff / 3600)}h ago`;
+  return `${Math.floor(diff / 86400)}d ago`;
+}
+
 const STATUSES = ['all', 'todo', 'in-progress', 'done'];
 const PRIORITIES = ['all', 'high', 'medium', 'low'];
 const STATUS_CYCLE = { todo: 'in-progress', 'in-progress': 'done', done: 'todo' };
@@ -191,6 +200,7 @@ export default function Tasks() {
           <span>Due</span>
           <span>Priority</span>
           <span>Status</span>
+          <span>Last Updated</span>
           <span></span>
         </div>
 
@@ -225,7 +235,7 @@ export default function Tasks() {
                     placeholder="Description"
                     rows={2}
                   />
-                  <div className="row-actions">
+                  <div className="row-actions" style={{marginTop: '4px'}}>
                     <button className="action-btn save" onClick={() => saveEdit(t.id)} disabled={saving}>Save</button>
                     <button className="action-btn cancel" onClick={() => setEditingId(null)}>Cancel</button>
                   </div>
@@ -244,6 +254,7 @@ export default function Tasks() {
                 <button className={`status-btn ${t.status}`} onClick={() => cycleStatus(t)} title="Click to advance status">
                   {t.status === 'todo' ? 'To Do' : t.status === 'in-progress' ? 'In Progress' : 'Done'}
                 </button>
+                <span className="cell-muted">{timeAgo(t.updated_at)}</span>
                 <div className="row-actions">
                   <button className="action-btn edit" onClick={() => startEdit(t)} title="Edit">✎</button>
                   <button className="action-btn delete" onClick={() => deleteTask(t.id)} title="Delete">✕</button>

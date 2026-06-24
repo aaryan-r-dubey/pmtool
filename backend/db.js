@@ -27,5 +27,8 @@ if (cols.includes('assignee') && !cols.includes('owner')) {
 if (!cols.includes('description')) {
   db.exec("ALTER TABLE tasks ADD COLUMN description TEXT DEFAULT ''");
 }
+if (!cols.includes('updated_at')) {
+  db.exec("ALTER TABLE tasks ADD COLUMN updated_at TEXT DEFAULT NULL");
+}
 
 export default db;
