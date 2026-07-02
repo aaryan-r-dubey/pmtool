@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import Sidebar from './components/Sidebar';
 import Dashboard from './components/Dashboard';
+import Projects from './components/Projects';
 import Tasks from './components/Tasks';
 import PendingTasks from './components/PendingTasks';
 import Calendar from './components/Calendar';
@@ -12,6 +13,7 @@ export default function App() {
 
   const views = {
     dashboard: <Dashboard />,
+    projects: <Projects />,
     tasks: <Tasks />,
     pending: <PendingTasks />,
     calendar: <Calendar />,

@@ -2,6 +2,7 @@ import './Sidebar.css';
 
 const nav = [
   { key: 'dashboard', label: 'Dashboard', icon: '⊞' },
+  { key: 'projects', label: 'Projects', icon: '◫' },
   { key: 'tasks', label: 'Tasks', icon: '✓' },
   { key: 'pending', label: 'Pending Tasks', icon: '◷' },
   { key: 'calendar', label: 'Calendar', icon: '◻' },

@@ -31,4 +31,28 @@ if (!cols.includes('updated_at')) {
   db.exec("ALTER TABLE tasks ADD COLUMN updated_at TEXT DEFAULT NULL");
 }
 
+db.exec(`
+  CREATE TABLE IF NOT EXISTS projects (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    name TEXT NOT NULL,
+    status TEXT NOT NULL DEFAULT 'active',
+    description TEXT DEFAULT '',
+    lead TEXT DEFAULT '',
+    created_at TEXT DEFAULT (datetime('now'))
+  )
+`);
+
+db.exec(`
+  CREATE TABLE IF NOT EXISTS files (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    original_name TEXT NOT NULL,
+    stored_name TEXT NOT NULL,
+    mime_type TEXT NOT NULL DEFAULT '',
+    size INTEGER NOT NULL DEFAULT 0,
+    project TEXT DEFAULT '',
+    uploaded_by TEXT DEFAULT '',
+    created_at TEXT DEFAULT (datetime('now'))
+  )
+`);
+
 export default db;

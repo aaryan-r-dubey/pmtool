@@ -34,8 +34,12 @@ export default function Tasks() {
   const [editForm, setEditForm] = useState({});
   const [saving, setSaving] = useState(false);
   const [selectedTask, setSelectedTask] = useState(null);
+  const [projects, setProjects] = useState([]);
 
-  useEffect(() => { fetchTasks(); }, []);
+  useEffect(() => {
+    fetchTasks();
+    fetch('/api/projects').then(r => r.json()).then(setProjects).catch(() => {});
+  }, []);
 
   async function fetchTasks() {
     try {
@@ -175,7 +179,10 @@ export default function Tasks() {
           </div>
           <div className="form-row">
             <input className="form-input flex-1" placeholder="Owner" value={form.owner} onChange={e => setForm(f => ({ ...f, owner: e.target.value }))} />
-            <input className="form-input flex-1" placeholder="Project" value={form.project} onChange={e => setForm(f => ({ ...f, project: e.target.value }))} />
+            <select className="form-input flex-1" value={form.project} onChange={e => setForm(f => ({ ...f, project: e.target.value }))}>
+              <option value="">No project</option>
+              {projects.map(p => <option key={p.id} value={p.name}>{p.name}</option>)}
+            </select>
             <input className="form-input" type="date" value={form.due} onChange={e => setForm(f => ({ ...f, due: e.target.value }))} />
           </div>
           <textarea
@@ -244,7 +251,10 @@ export default function Tasks() {
                   </div>
                   <div className="form-row">
                     <input className="form-input flex-1" value={editForm.owner} onChange={e => setEditForm(f => ({ ...f, owner: e.target.value }))} placeholder="Owner" />
-                    <input className="form-input flex-1" value={editForm.project} onChange={e => setEditForm(f => ({ ...f, project: e.target.value }))} placeholder="Project" />
+                    <select className="form-input flex-1" value={editForm.project} onChange={e => setEditForm(f => ({ ...f, project: e.target.value }))}>
+                  <option value="">No project</option>
+                  {projects.map(p => <option key={p.id} value={p.name}>{p.name}</option>)}
+                </select>
                     <input className="form-input" type="date" value={editForm.due} onChange={e => setEditForm(f => ({ ...f, due: e.target.value }))} />
                   </div>
                   <textarea
