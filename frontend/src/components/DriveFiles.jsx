@@ -48,7 +48,7 @@ export default function DriveFiles() {
   const [projects, setProjects] = useState([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState('');
-  const [filterProject, setFilterProject] = useState('all');
+  const [openFolder, setOpenFolder] = useState(null); // null = folder view; '' = No Project; name = project
   const [viewMode, setViewMode] = useState('grid');
   const [showUpload, setShowUpload] = useState(false);
   const [uploading, setUploading] = useState(false);
@@ -108,11 +108,23 @@ export default function DriveFiles() {
 
   const projectNames = [...new Set(files.map(f => f.project).filter(Boolean))];
 
-  const filtered = files.filter(f => {
-    if (filterProject !== 'all' && f.project !== filterProject) return false;
-    if (search && !f.original_name.toLowerCase().includes(search.toLowerCase())) return false;
-    return true;
-  });
+  const searching = search.trim().length > 0;
+
+  const searchFiltered = files.filter(f =>
+    f.original_name.toLowerCase().includes(search.toLowerCase())
+  );
+
+  const folders = [
+    ...projectNames.map(name => ({ key: name, label: name })),
+    { key: '', label: 'No Project' },
+  ].map(folder => {
+    const folderFiles = files.filter(f => (f.project || '') === folder.key);
+    return { ...folder, files: folderFiles, totalSize: folderFiles.reduce((s, f) => s + (f.size || 0), 0) };
+  }).filter(folder => folder.files.length > 0);
+
+  const filtered = searching
+    ? searchFiltered
+    : files.filter(f => (f.project || '') === openFolder);
 
   return (
     <div
@@ -133,7 +145,10 @@ export default function DriveFiles() {
       <div className="page-header">
         <div>
           <h1>Files</h1>
-          <p className="page-sub">{files.length} file{files.length !== 1 ? 's' : ''} stored</p>
+          <p className="page-sub">
+            {files.length} file{files.length !== 1 ? 's' : ''} stored
+            {!searching && openFolder === null ? ` in ${folders.length} folder${folders.length !== 1 ? 's' : ''}` : ''}
+          </p>
         </div>
         <button className="btn-primary" onClick={() => setShowUpload(v => !v)}>
           {showUpload ? 'Cancel' : '+ Upload Files'}
@@ -207,30 +222,51 @@ export default function DriveFiles() {
           value={search}
           onChange={e => setSearch(e.target.value)}
         />
-        <div className="filter-group">
-          <button className={`filter-btn ${filterProject === 'all' ? 'active' : ''}`} onClick={() => setFilterProject('all')}>All</button>
-          <button className={`filter-btn ${filterProject === '' ? 'active' : ''}`} onClick={() => setFilterProject('')}>No Project</button>
-          {projectNames.map(p => (
-            <button key={p} className={`filter-btn ${filterProject === p ? 'active' : ''}`} onClick={() => setFilterProject(p)}>{p}</button>
-          ))}
-        </div>
-        <div className="view-toggle">
-          <button className={`view-btn ${viewMode === 'grid' ? 'active' : ''}`} onClick={() => setViewMode('grid')}>⊞</button>
-          <button className={`view-btn ${viewMode === 'list' ? 'active' : ''}`} onClick={() => setViewMode('list')}>☰</button>
-        </div>
+        {!searching && openFolder !== null && (
+          <button className="filter-btn back-btn" onClick={() => setOpenFolder(null)}>
+            ← All Folders
+          </button>
+        )}
+        {!searching && openFolder !== null && (
+          <span className="folder-crumb">{openFolder === '' ? 'No Project' : openFolder}</span>
+        )}
+        {(searching || openFolder !== null) && (
+          <div className="view-toggle">
+            <button className={`view-btn ${viewMode === 'grid' ? 'active' : ''}`} onClick={() => setViewMode('grid')}>⊞</button>
+            <button className={`view-btn ${viewMode === 'list' ? 'active' : ''}`} onClick={() => setViewMode('list')}>☰</button>
+          </div>
+        )}
       </div>
 
       {loading && <p className="empty-state">Loading files...</p>}
 
-      {!loading && filtered.length === 0 && (
-        <p className="empty-state">
-          {files.length === 0
-            ? 'No files yet. Click "Upload Files" or drag and drop files anywhere on this page.'
-            : 'No files match your search.'}
-        </p>
+      {!loading && searching && searchFiltered.length === 0 && (
+        <p className="empty-state">No files match your search.</p>
       )}
 
-      {viewMode === 'grid' && !loading && filtered.length > 0 && (
+      {!loading && !searching && files.length === 0 && (
+        <p className="empty-state">No files yet. Click "Upload Files" or drag and drop files anywhere on this page.</p>
+      )}
+
+      {!loading && !searching && openFolder === null && files.length > 0 && (
+        <div className="folders-grid">
+          {folders.map(folder => (
+            <button key={folder.key || '__none__'} className="folder-card" onClick={() => setOpenFolder(folder.key)}>
+              <div className="folder-card-icon">📁</div>
+              <div className="folder-card-body">
+                <span className="folder-name">{folder.label}</span>
+                <span className="folder-meta">{folder.files.length} file{folder.files.length !== 1 ? 's' : ''} · {formatSize(folder.totalSize)}</span>
+              </div>
+            </button>
+          ))}
+        </div>
+      )}
+
+      {!loading && (searching || openFolder !== null) && filtered.length === 0 && !searching && (
+        <p className="empty-state">No files in this folder.</p>
+      )}
+
+      {viewMode === 'grid' && !loading && (searching || openFolder !== null) && filtered.length > 0 && (
         <div className="files-grid">
           {filtered.map(f => (
             <div key={f.id} className="file-card-full">
@@ -255,7 +291,7 @@ export default function DriveFiles() {
         </div>
       )}
 
-      {viewMode === 'list' && !loading && filtered.length > 0 && (
+      {viewMode === 'list' && !loading && (searching || openFolder !== null) && filtered.length > 0 && (
         <div className="file-list card">
           <div className="file-list-head">
             <span>Name</span>

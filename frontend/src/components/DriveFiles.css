@@ -159,6 +159,38 @@
 }
 .view-btn.active { background: var(--accent-light); color: var(--accent); border-color: var(--accent); }
 
+/* Folders */
+.folders-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+  gap: 12px;
+}
+
+.folder-card {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 14px;
+  cursor: pointer;
+  text-align: left;
+  box-shadow: 0 1px 4px rgba(0,0,0,.06);
+}
+.folder-card:hover { border-color: var(--accent); background: var(--accent-light); }
+
+.folder-card-icon { font-size: 30px; }
+
+.folder-card-body { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+.folder-name { font-size: 13px; font-weight: 600; color: var(--text); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.folder-meta { font-size: 11px; color: var(--text-muted); }
+
+.back-btn { background: var(--surface); border: 1px solid var(--border); }
+.back-btn:hover { background: var(--bg); }
+
+.folder-crumb { font-size: 13px; font-weight: 600; color: var(--text); }
+
 /* Grid */
 .files-grid {
   display: grid;
