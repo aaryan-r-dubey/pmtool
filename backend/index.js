@@ -1,23 +1,11 @@
+import 'dotenv/config';
 import express from 'express';
 import cors from 'cors';
 import multer from 'multer';
-import { join, dirname, extname } from 'path';
-import { fileURLToPath } from 'url';
-import { mkdirSync, unlinkSync } from 'fs';
 import db from './db.js';
+import * as googleDrive from './googleDrive.js';
 
-const __dirname = dirname(fileURLToPath(import.meta.url));
-const UPLOAD_DIR = join(__dirname, 'uploads');
-mkdirSync(UPLOAD_DIR, { recursive: true });
-
-const storage = multer.diskStorage({
-  destination: (req, file, cb) => cb(null, UPLOAD_DIR),
-  filename: (req, file, cb) => {
-    const unique = `${Date.now()}-${Math.round(Math.random() * 1e9)}${extname(file.originalname)}`;
-    cb(null, unique);
-  },
-});
-const upload = multer({ storage, limits: { fileSize: 50 * 1024 * 1024 } });
+const upload = multer({ storage: multer.memoryStorage(), limits: { fileSize: 50 * 1024 * 1024 } });
 
 const app = express();
 app.use(cors());
@@ -80,30 +68,81 @@ app.get('/api/projects', (req, res) => {
   res.json(withCounts);
 });
 
-app.post('/api/projects', (req, res) => {
+app.post('/api/projects', async (req, res) => {
   const { name, status = 'active', description = '', lead = '' } = req.body;
   if (!name?.trim()) return res.status(400).json({ error: 'Name is required' });
   const result = db.prepare(
     'INSERT INTO projects (name, status, description, lead) VALUES (?, ?, ?, ?)'
   ).run(name.trim(), status, description, lead);
+
+  if (googleDrive.isAuthorized()) {
+    try {
+      const folderId = await googleDrive.getOrCreateProjectFolder(name.trim());
+      db.prepare('UPDATE projects SET drive_folder_id = ? WHERE id = ?').run(folderId, result.lastInsertRowid);
+    } catch (err) {
+      console.error('Failed to create Drive folder for project:', err.message);
+    }
+  }
+
   res.status(201).json(db.prepare('SELECT * FROM projects WHERE id = ?').get(result.lastInsertRowid));
 });
 
-app.patch('/api/projects/:id', (req, res) => {
+app.patch('/api/projects/:id', async (req, res) => {
   const { id } = req.params;
   const { name, status, description, lead } = req.body;
   const p = db.prepare('SELECT * FROM projects WHERE id = ?').get(id);
   if (!p) return res.status(404).json({ error: 'Project not found' });
+  const newName = name ?? p.name;
   db.prepare('UPDATE projects SET name=?, status=?, description=?, lead=? WHERE id=?')
-    .run(name ?? p.name, status ?? p.status, description ?? p.description, lead ?? p.lead, id);
+    .run(newName, status ?? p.status, description ?? p.description, lead ?? p.lead, id);
+
+  if (newName !== p.name && p.drive_folder_id && googleDrive.isAuthorized()) {
+    try { await googleDrive.renameProjectFolder(p.drive_folder_id, newName); } catch (err) {
+      console.error('Failed to rename Drive folder:', err.message);
+    }
+  }
+
   res.json(db.prepare('SELECT * FROM projects WHERE id = ?').get(id));
 });
 
-app.delete('/api/projects/:id', (req, res) => {
+app.delete('/api/projects/:id', async (req, res) => {
   const { id } = req.params;
-  if (!db.prepare('SELECT * FROM projects WHERE id = ?').get(id)) return res.status(404).json({ error: 'Not found' });
+  const p = db.prepare('SELECT * FROM projects WHERE id = ?').get(id);
+  if (!p) return res.status(404).json({ error: 'Not found' });
+
+  if (p.drive_folder_id && googleDrive.isAuthorized()) {
+    try {
+      await googleDrive.trashFolder(p.drive_folder_id);
+      googleDrive.invalidateProjectFolderCache(p.name);
+    } catch (err) {
+      console.error('Failed to trash Drive folder:', err.message);
+    }
+  }
+
+  db.prepare('DELETE FROM files WHERE project = ?').run(p.name);
   db.prepare('DELETE FROM projects WHERE id = ?').run(id);
   res.json({ success: true });
+});
+
+// Google Drive OAuth
+app.get('/auth/google', (req, res) => {
+  if (!googleDrive.isConfigured()) return res.status(500).send('Google OAuth is not configured. Set GOOGLE_CLIENT_ID, GOOGLE_CLIENT_SECRET, GOOGLE_REDIRECT_URI in backend/.env');
+  res.redirect(googleDrive.getAuthUrl());
+});
+
+app.get('/auth/google/callback', async (req, res) => {
+  const { code } = req.query;
+  if (!code) return res.status(400).send('Missing code');
+  try {
+    await googleDrive.handleOAuthCallback(code);
+    res.send('Google Drive connected. You can close this tab.');
+  } catch (err) {
+    res.status(500).send('Failed to connect Google Drive: ' + err.message);
+  }
+});
+
+app.get('/api/drive/status', (req, res) => {
+  res.json({ configured: googleDrive.isConfigured(), authorized: googleDrive.isAuthorized() });
 });
 
 // Files
@@ -112,25 +151,48 @@ app.get('/api/files', (req, res) => {
   res.json(files);
 });
 
-app.post('/api/files', upload.single('file'), (req, res) => {
+app.post('/api/files', upload.single('file'), async (req, res) => {
   if (!req.file) return res.status(400).json({ error: 'No file provided' });
+  if (!googleDrive.isAuthorized()) {
+    return res.status(503).json({ error: 'Google Drive is not connected. Visit /auth/google to connect it.' });
+  }
   const { project = '', uploaded_by = '' } = req.body;
-  const result = db.prepare(
-    'INSERT INTO files (original_name, stored_name, mime_type, size, project, uploaded_by) VALUES (?, ?, ?, ?, ?, ?)'
-  ).run(req.file.originalname, req.file.filename, req.file.mimetype, req.file.size, project, uploaded_by);
-  res.status(201).json(db.prepare('SELECT * FROM files WHERE id = ?').get(result.lastInsertRowid));
+  try {
+    const projectRow = project ? db.prepare('SELECT drive_folder_id FROM projects WHERE name = ?').get(project) : null;
+    const { driveFileId, driveLink } = await googleDrive.uploadFile({
+      buffer: req.file.buffer,
+      originalName: req.file.originalname,
+      mimeType: req.file.mimetype,
+      project,
+      driveFolderId: projectRow?.drive_folder_id || null,
+    });
+    const result = db.prepare(
+      'INSERT INTO files (original_name, stored_name, mime_type, size, project, uploaded_by, drive_file_id, drive_link) VALUES (?, ?, ?, ?, ?, ?, ?, ?)'
+    ).run(req.file.originalname, '', req.file.mimetype, req.file.size, project, uploaded_by, driveFileId, driveLink);
+    res.status(201).json(db.prepare('SELECT * FROM files WHERE id = ?').get(result.lastInsertRowid));
+  } catch (err) {
+    res.status(500).json({ error: 'Failed to upload to Google Drive: ' + err.message });
+  }
 });
 
-app.get('/api/files/:id/download', (req, res) => {
+app.get('/api/files/:id/download', async (req, res) => {
   const file = db.prepare('SELECT * FROM files WHERE id = ?').get(req.params.id);
   if (!file) return res.status(404).json({ error: 'Not found' });
-  res.download(join(UPLOAD_DIR, file.stored_name), file.original_name);
+  if (!file.drive_file_id) return res.status(410).json({ error: 'File is not available' });
+  try {
+    const stream = await googleDrive.downloadFileStream(file.drive_file_id);
+    res.setHeader('Content-Disposition', `attachment; filename="${encodeURIComponent(file.original_name)}"`);
+    if (file.mime_type) res.setHeader('Content-Type', file.mime_type);
+    stream.pipe(res);
+  } catch (err) {
+    res.status(500).json({ error: 'Failed to download from Google Drive: ' + err.message });
+  }
 });
 
-app.delete('/api/files/:id', (req, res) => {
+app.delete('/api/files/:id', async (req, res) => {
   const file = db.prepare('SELECT * FROM files WHERE id = ?').get(req.params.id);
   if (!file) return res.status(404).json({ error: 'Not found' });
-  try { unlinkSync(join(UPLOAD_DIR, file.stored_name)); } catch {}
+  if (file.drive_file_id) await googleDrive.deleteFile(file.drive_file_id);
   db.prepare('DELETE FROM files WHERE id = ?').run(req.params.id);
   res.json({ success: true });
 });

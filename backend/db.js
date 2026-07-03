@@ -42,6 +42,11 @@ db.exec(`
   )
 `);
 
+const projectCols = db.prepare("PRAGMA table_info(projects)").all().map(c => c.name);
+if (!projectCols.includes('drive_folder_id')) {
+  db.exec("ALTER TABLE projects ADD COLUMN drive_folder_id TEXT DEFAULT ''");
+}
+
 db.exec(`
   CREATE TABLE IF NOT EXISTS files (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -54,5 +59,13 @@ db.exec(`
     created_at TEXT DEFAULT (datetime('now'))
   )
 `);
+
+const fileCols = db.prepare("PRAGMA table_info(files)").all().map(c => c.name);
+if (!fileCols.includes('drive_file_id')) {
+  db.exec("ALTER TABLE files ADD COLUMN drive_file_id TEXT DEFAULT ''");
+}
+if (!fileCols.includes('drive_link')) {
+  db.exec("ALTER TABLE files ADD COLUMN drive_link TEXT DEFAULT ''");
+}
 
 export default db;

@@ -12,6 +12,8 @@ dist
 dist-ssr
 *.local
 backend/tasks.db
+backend/.env
+backend/google-token.json
 
 # Editor directories and files
 .vscode/*

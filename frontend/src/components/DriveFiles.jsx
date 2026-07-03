@@ -55,11 +55,13 @@ export default function DriveFiles() {
   const [uploadForm, setUploadForm] = useState({ project: '', uploaded_by: '' });
   const [dragOver, setDragOver] = useState(false);
   const [selectedFiles, setSelectedFiles] = useState([]);
+  const [driveStatus, setDriveStatus] = useState(null);
   const fileInputRef = useRef();
 
   useEffect(() => {
     fetchFiles();
     fetch('/api/projects').then(r => r.json()).then(setProjects).catch(() => {});
+    fetch('/api/drive/status').then(r => r.json()).then(setDriveStatus).catch(() => {});
   }, []);
 
   async function fetchFiles() {
@@ -81,14 +83,18 @@ export default function DriveFiles() {
         fd.append('file', file);
         fd.append('project', uploadForm.project);
         fd.append('uploaded_by', uploadForm.uploaded_by);
-        await fetch('/api/files', { method: 'POST', body: fd });
+        const res = await fetch('/api/files', { method: 'POST', body: fd });
+        if (!res.ok) {
+          const body = await res.json().catch(() => ({}));
+          throw new Error(body.error || 'Upload failed.');
+        }
       }
       await fetchFiles();
       setShowUpload(false);
       setSelectedFiles([]);
       setUploadForm({ project: '', uploaded_by: '' });
-    } catch {
-      alert('Upload failed.');
+    } catch (err) {
+      alert(err.message || 'Upload failed.');
     }
     setUploading(false);
   }
@@ -139,6 +145,19 @@ export default function DriveFiles() {
             <span style={{fontSize: 48}}>📁</span>
             <p>Drop files to upload</p>
           </div>
+        </div>
+      )}
+
+      {driveStatus && !driveStatus.authorized && (
+        <div className="drive-connect-banner">
+          {driveStatus.configured ? (
+            <>
+              <span>Google Drive isn't connected yet — uploads won't work until it is.</span>
+              <a className="btn-primary" href="/auth/google">Connect Google Drive</a>
+            </>
+          ) : (
+            <span>Google Drive isn't configured. Set GOOGLE_CLIENT_ID, GOOGLE_CLIENT_SECRET, and GOOGLE_REDIRECT_URI in backend/.env, then restart the server.</span>
+          )}
         </div>
       )}
 

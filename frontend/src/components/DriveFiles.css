@@ -1,5 +1,20 @@
 .drive-page { padding: 28px 32px; max-width: 1100px; position: relative; }
 
+.drive-connect-banner {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  background: #f5edda;
+  border: 1px solid #e3cf9c;
+  color: #6b4d0a;
+  border-radius: var(--radius);
+  padding: 10px 16px;
+  margin-bottom: 16px;
+  font-size: 13px;
+}
+.drive-connect-banner .btn-primary { text-decoration: none; flex-shrink: 0; }
+
 .page-header {
   display: flex;
   align-items: flex-start;

@@ -78,14 +78,18 @@ export default function ProjectDetail({ project: initial, onBack, onUpdate }) {
         fd.append('file', file);
         fd.append('project', project.name);
         fd.append('uploaded_by', uploadedBy);
-        await fetch('/api/files', { method: 'POST', body: fd });
+        const res = await fetch('/api/files', { method: 'POST', body: fd });
+        if (!res.ok) {
+          const body = await res.json().catch(() => ({}));
+          throw new Error(body.error || 'Upload failed.');
+        }
       }
       await fetchFiles();
       setShowFileForm(false);
       setSelectedFiles([]);
       setUploadedBy('');
-    } catch {
-      alert('Upload failed.');
+    } catch (err) {
+      alert(err.message || 'Upload failed.');
     } finally {
       setUploading(false);
     }
