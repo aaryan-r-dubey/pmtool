@@ -95,11 +95,61 @@
 .section-label { font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: .6px; color: var(--text-muted); }
 
 /* Tasks */
-.proj-tasks-section {
+.proj-tasks-section, .proj-files-section {
   display: flex;
   flex-direction: column;
   gap: 10px;
+  margin-bottom: 24px;
 }
+
+.section-header-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.btn-sm { padding: 5px 12px; font-size: 12px; }
+
+.inline-add-form {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 14px 16px;
+  box-shadow: var(--shadow);
+}
+.inline-add-row { display: flex; gap: 10px; flex-wrap: wrap; }
+.inline-add-row .form-input { flex: 1; min-width: 120px; }
+.inline-add-form > .btn-primary { align-self: flex-start; }
+
+.proj-file-row {
+  display: grid;
+  grid-template-columns: 1fr 120px 90px 80px;
+  align-items: center;
+  gap: 12px;
+  padding: 11px 16px;
+  border-bottom: 1px solid var(--border);
+}
+.proj-file-row:last-child { border-bottom: none; }
+.proj-file-row:hover { background: var(--bg); }
+.proj-file-name { font-size: 13px; font-weight: 500; color: var(--text); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
+.row-actions { display: flex; gap: 4px; }
+.action-btn-link {
+  display: inline-flex; align-items: center; justify-content: center;
+  width: 28px; height: 28px; border-radius: 6px;
+  background: var(--bg); border: 1px solid var(--border); color: var(--accent);
+  font-size: 13px; text-decoration: none; cursor: pointer;
+}
+.action-btn-link:hover { background: var(--accent-light); border-color: var(--accent); }
+.action-btn {
+  width: 28px; height: 28px; border-radius: 6px; border: 1px solid var(--border);
+  background: var(--bg); font-size: 12px; cursor: pointer;
+  display: flex; align-items: center; justify-content: center; color: var(--text-muted);
+}
+.action-btn.delete:hover { background: #f9e8e6; border-color: #e8a09a; color: var(--danger); }
 
 .empty-state { font-size: 13px; color: var(--text-muted); padding: 20px 0; }
 
