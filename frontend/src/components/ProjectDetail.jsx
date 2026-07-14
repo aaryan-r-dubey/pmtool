@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+import { apiUrl } from '../api';
 import './ProjectDetail.css';
 
 const STATUS_LABEL = { active: 'Active', pipeline: 'Pipeline', 'on-hold': 'On Hold', closed: 'Closed' };
@@ -31,7 +32,7 @@ export default function ProjectDetail({ project: initial, onBack, onUpdate }) {
   const [uploading, setUploading] = useState(false);
 
   useEffect(() => {
-    fetch('/api/tasks')
+    fetch(apiUrl('/api/tasks'))
       .then(r => r.json())
       .then(all => setTasks(all.filter(t => t.project === project.name)))
       .catch(() => {});
@@ -40,7 +41,7 @@ export default function ProjectDetail({ project: initial, onBack, onUpdate }) {
 
   async function fetchFiles() {
     try {
-      const res = await fetch('/api/files');
+      const res = await fetch(apiUrl('/api/files'));
       const all = await res.json();
       setFiles(all.filter(f => f.project === project.name));
     } catch {}
@@ -51,7 +52,7 @@ export default function ProjectDetail({ project: initial, onBack, onUpdate }) {
     if (!taskForm.title.trim()) return;
     setSavingTask(true);
     try {
-      const res = await fetch('/api/tasks', {
+      const res = await fetch(apiUrl('/api/tasks'), {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ ...taskForm, project: project.name }),
@@ -78,7 +79,7 @@ export default function ProjectDetail({ project: initial, onBack, onUpdate }) {
         fd.append('file', file);
         fd.append('project', project.name);
         fd.append('uploaded_by', uploadedBy);
-        const res = await fetch('/api/files', { method: 'POST', body: fd });
+        const res = await fetch(apiUrl('/api/files'), { method: 'POST', body: fd });
         if (!res.ok) {
           const body = await res.json().catch(() => ({}));
           throw new Error(body.error || 'Upload failed.');
@@ -97,7 +98,7 @@ export default function ProjectDetail({ project: initial, onBack, onUpdate }) {
 
   async function deleteFile(id) {
     if (!confirm('Delete this file?')) return;
-    await fetch(`/api/files/${id}`, { method: 'DELETE' });
+    await fetch(apiUrl(`/api/files/${id}`), { method: 'DELETE' });
     setFiles(prev => prev.filter(f => f.id !== id));
   }
 
@@ -105,7 +106,7 @@ export default function ProjectDetail({ project: initial, onBack, onUpdate }) {
     e.preventDefault();
     setSaving(true);
     try {
-      const res = await fetch(`/api/projects/${project.id}`, {
+      const res = await fetch(apiUrl(`/api/projects/${project.id}`), {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(form),

@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef } from 'react';
+import { apiUrl } from '../api';
 import './DriveFiles.css';
 
 function fileIcon(mime) {
@@ -60,14 +61,14 @@ export default function DriveFiles() {
 
   useEffect(() => {
     fetchFiles();
-    fetch('/api/projects').then(r => r.json()).then(setProjects).catch(() => {});
-    fetch('/api/drive/status').then(r => r.json()).then(setDriveStatus).catch(() => {});
+    fetch(apiUrl('/api/projects')).then(r => r.json()).then(setProjects).catch(() => {});
+    fetch(apiUrl('/api/drive/status')).then(r => r.json()).then(setDriveStatus).catch(() => {});
   }, []);
 
   async function fetchFiles() {
     setLoading(true);
     try {
-      const res = await fetch('/api/files');
+      const res = await fetch(apiUrl('/api/files'));
       setFiles(await res.json());
     } catch {}
     setLoading(false);
@@ -83,7 +84,7 @@ export default function DriveFiles() {
         fd.append('file', file);
         fd.append('project', uploadForm.project);
         fd.append('uploaded_by', uploadForm.uploaded_by);
-        const res = await fetch('/api/files', { method: 'POST', body: fd });
+        const res = await fetch(apiUrl('/api/files'), { method: 'POST', body: fd });
         if (!res.ok) {
           const body = await res.json().catch(() => ({}));
           throw new Error(body.error || 'Upload failed.');
@@ -101,7 +102,7 @@ export default function DriveFiles() {
 
   async function deleteFile(id) {
     if (!confirm('Delete this file?')) return;
-    await fetch(`/api/files/${id}`, { method: 'DELETE' });
+    await fetch(apiUrl(`/api/files/${id}`), { method: 'DELETE' });
     setFiles(prev => prev.filter(f => f.id !== id));
   }
 
@@ -153,7 +154,7 @@ export default function DriveFiles() {
           {driveStatus.configured ? (
             <>
               <span>Google Drive isn't connected yet — uploads won't work until it is.</span>
-              <a className="btn-primary" href="/auth/google">Connect Google Drive</a>
+              <a className="btn-primary" href={apiUrl('/auth/google')}>Connect Google Drive</a>
             </>
           ) : (
             <span>Google Drive isn't configured. Set GOOGLE_CLIENT_ID, GOOGLE_CLIENT_SECRET, and GOOGLE_REDIRECT_URI in backend/.env, then restart the server.</span>

@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { apiUrl } from '../api';
 import './TaskDetail.css';
 
 const STATUS_CYCLE = { todo: 'in-progress', 'in-progress': 'done', done: 'todo' };
@@ -34,7 +35,7 @@ export default function TaskDetail({ task: initial, onBack, onUpdate }) {
   async function cycleStatus() {
     const newStatus = STATUS_CYCLE[task.status];
     try {
-      const res = await fetch(`/api/tasks/${task.id}`, {
+      const res = await fetch(apiUrl(`/api/tasks/${task.id}`), {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ status: newStatus }),
@@ -51,7 +52,7 @@ export default function TaskDetail({ task: initial, onBack, onUpdate }) {
     e.preventDefault();
     setSaving(true);
     try {
-      const res = await fetch(`/api/tasks/${task.id}`, {
+      const res = await fetch(apiUrl(`/api/tasks/${task.id}`), {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(form),

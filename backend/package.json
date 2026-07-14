@@ -7,11 +7,11 @@
     "dev": "node index.js"
   },
   "dependencies": {
-    "better-sqlite3": "^12.11.1",
     "cors": "^2.8.6",
     "dotenv": "^17.4.2",
     "express": "^4.22.2",
     "googleapis": "^173.0.0",
-    "multer": "^2.2.0"
+    "multer": "^2.2.0",
+    "pg": "^8.22.0"
   }
 }

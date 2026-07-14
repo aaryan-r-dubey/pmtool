@@ -11,8 +11,8 @@ node_modules
 dist
 dist-ssr
 *.local
-backend/tasks.db
 backend/.env
+frontend/.env
 backend/google-token.json
 
 # Editor directories and files

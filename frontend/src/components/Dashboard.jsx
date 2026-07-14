@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import { events, driveFiles } from '../data';
+import { apiUrl } from '../api';
 import './Dashboard.css';
 
 const today = new Date().toISOString().split('T')[0];
@@ -16,7 +17,7 @@ export default function Dashboard() {
   const [tasks, setTasks] = useState([]);
 
   useEffect(() => {
-    fetch('/api/tasks')
+    fetch(apiUrl('/api/tasks'))
       .then(r => r.json())
       .then(setTasks)
       .catch(() => {});

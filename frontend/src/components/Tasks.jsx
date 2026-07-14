@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import TaskDetail from './TaskDetail';
+import { apiUrl } from '../api';
 import './Tasks.css';
 
 function timeAgo(dateStr) {
@@ -38,13 +39,13 @@ export default function Tasks() {
 
   useEffect(() => {
     fetchTasks();
-    fetch('/api/projects').then(r => r.json()).then(setProjects).catch(() => {});
+    fetch(apiUrl('/api/projects')).then(r => r.json()).then(setProjects).catch(() => {});
   }, []);
 
   async function fetchTasks() {
     try {
       setLoading(true);
-      const res = await fetch('/api/tasks');
+      const res = await fetch(apiUrl('/api/tasks'));
       if (!res.ok) throw new Error();
       setTasks(await res.json());
       setError(null);
@@ -60,7 +61,7 @@ export default function Tasks() {
     if (!form.title.trim()) return;
     setSaving(true);
     try {
-      const res = await fetch('/api/tasks', {
+      const res = await fetch(apiUrl('/api/tasks'), {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(form),
@@ -80,7 +81,7 @@ export default function Tasks() {
   async function cycleStatus(task) {
     const newStatus = STATUS_CYCLE[task.status];
     try {
-      const res = await fetch(`/api/tasks/${task.id}`, {
+      const res = await fetch(apiUrl(`/api/tasks/${task.id}`), {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ status: newStatus }),
@@ -96,7 +97,7 @@ export default function Tasks() {
   async function saveEdit(id) {
     setSaving(true);
     try {
-      const res = await fetch(`/api/tasks/${id}`, {
+      const res = await fetch(apiUrl(`/api/tasks/${id}`), {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(editForm),
@@ -115,7 +116,7 @@ export default function Tasks() {
   async function deleteTask(id) {
     if (!confirm('Delete this task?')) return;
     try {
-      const res = await fetch(`/api/tasks/${id}`, { method: 'DELETE' });
+      const res = await fetch(apiUrl(`/api/tasks/${id}`), { method: 'DELETE' });
       if (!res.ok) throw new Error();
       setTasks(prev => prev.filter(t => t.id !== id));
     } catch {

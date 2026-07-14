@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+import { apiUrl } from '../api';
 import './PendingTasks.css';
 
 const STATUS_CYCLE = { todo: 'in-progress', 'in-progress': 'done', done: 'todo' };
@@ -28,7 +29,7 @@ export default function PendingTasks() {
   async function fetchPending() {
     try {
       setLoading(true);
-      const res = await fetch('/api/tasks');
+      const res = await fetch(apiUrl('/api/tasks'));
       const all = await res.json();
       const pending = all
         .filter(t => t.status !== 'done')
@@ -48,7 +49,7 @@ export default function PendingTasks() {
   async function cycleStatus(task) {
     const newStatus = STATUS_CYCLE[task.status];
     try {
-      const res = await fetch(`/api/tasks/${task.id}`, {
+      const res = await fetch(apiUrl(`/api/tasks/${task.id}`), {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ status: newStatus }),

@@ -2,7 +2,7 @@ import 'dotenv/config';
 import express from 'express';
 import cors from 'cors';
 import multer from 'multer';
-import db from './db.js';
+import { query, one } from './db.js';
 import * as googleDrive from './googleDrive.js';
 
 const upload = multer({ storage: multer.memoryStorage(), limits: { fileSize: 50 * 1024 * 1024 } });
@@ -11,59 +11,60 @@ const app = express();
 app.use(cors());
 app.use(express.json());
 
-app.get('/api/tasks', (req, res) => {
-  const tasks = db.prepare('SELECT * FROM tasks ORDER BY created_at DESC').all();
+app.get('/api/tasks', async (req, res) => {
+  const tasks = await query('SELECT * FROM tasks ORDER BY created_at DESC');
   res.json(tasks);
 });
 
-app.post('/api/tasks', (req, res) => {
+app.post('/api/tasks', async (req, res) => {
   const { title, status = 'todo', priority = 'medium', owner = '', project = '', due = '', description = '' } = req.body;
   if (!title?.trim()) return res.status(400).json({ error: 'Title is required' });
-  const result = db.prepare(
-    'INSERT INTO tasks (title, status, priority, owner, project, due, description) VALUES (?, ?, ?, ?, ?, ?, ?)'
-  ).run(title.trim(), status, priority, owner, project, due, description);
-  const task = db.prepare('SELECT * FROM tasks WHERE id = ?').get(result.lastInsertRowid);
+  const task = await one(
+    'INSERT INTO tasks (title, status, priority, owner, project, due, description) VALUES ($1, $2, $3, $4, $5, $6, $7) RETURNING *',
+    [title.trim(), status, priority, owner, project, due, description]
+  );
   res.status(201).json(task);
 });
 
-app.patch('/api/tasks/:id', (req, res) => {
+app.patch('/api/tasks/:id', async (req, res) => {
   const { id } = req.params;
   const { title, status, priority, owner, project, due, description } = req.body;
-  const task = db.prepare('SELECT * FROM tasks WHERE id = ?').get(id);
+  const task = await one('SELECT * FROM tasks WHERE id = $1', [id]);
   if (!task) return res.status(404).json({ error: 'Task not found' });
-  db.prepare(`
-    UPDATE tasks SET
-      title = ?, status = ?, priority = ?, owner = ?, project = ?, due = ?, description = ?,
-      updated_at = datetime('now')
-    WHERE id = ?
-  `).run(
-    title ?? task.title,
-    status ?? task.status,
-    priority ?? task.priority,
-    owner ?? task.owner,
-    project ?? task.project,
-    due ?? task.due,
-    description ?? task.description,
-    id
+  const updated = await one(
+    `UPDATE tasks SET
+      title = $1, status = $2, priority = $3, owner = $4, project = $5, due = $6, description = $7,
+      updated_at = now()
+    WHERE id = $8 RETURNING *`,
+    [
+      title ?? task.title,
+      status ?? task.status,
+      priority ?? task.priority,
+      owner ?? task.owner,
+      project ?? task.project,
+      due ?? task.due,
+      description ?? task.description,
+      id,
+    ]
   );
-  res.json(db.prepare('SELECT * FROM tasks WHERE id = ?').get(id));
+  res.json(updated);
 });
 
-app.delete('/api/tasks/:id', (req, res) => {
+app.delete('/api/tasks/:id', async (req, res) => {
   const { id } = req.params;
-  const task = db.prepare('SELECT * FROM tasks WHERE id = ?').get(id);
+  const task = await one('SELECT * FROM tasks WHERE id = $1', [id]);
   if (!task) return res.status(404).json({ error: 'Task not found' });
-  db.prepare('DELETE FROM tasks WHERE id = ?').run(id);
+  await query('DELETE FROM tasks WHERE id = $1', [id]);
   res.json({ success: true });
 });
 
 // Projects
-app.get('/api/projects', (req, res) => {
-  const projects = db.prepare('SELECT * FROM projects ORDER BY created_at DESC').all();
-  const withCounts = projects.map(p => ({
-    ...p,
-    taskCount: db.prepare("SELECT COUNT(*) as c FROM tasks WHERE project = ?").get(p.name).c,
-    openCount: db.prepare("SELECT COUNT(*) as c FROM tasks WHERE project = ? AND status != 'done'").get(p.name).c,
+app.get('/api/projects', async (req, res) => {
+  const projects = await query('SELECT * FROM projects ORDER BY created_at DESC');
+  const withCounts = await Promise.all(projects.map(async p => {
+    const taskCount = await one('SELECT COUNT(*) as c FROM tasks WHERE project = $1', [p.name]);
+    const openCount = await one("SELECT COUNT(*) as c FROM tasks WHERE project = $1 AND status != 'done'", [p.name]);
+    return { ...p, taskCount: Number(taskCount.c), openCount: Number(openCount.c) };
   }));
   res.json(withCounts);
 });
@@ -71,30 +72,34 @@ app.get('/api/projects', (req, res) => {
 app.post('/api/projects', async (req, res) => {
   const { name, status = 'active', description = '', lead = '' } = req.body;
   if (!name?.trim()) return res.status(400).json({ error: 'Name is required' });
-  const result = db.prepare(
-    'INSERT INTO projects (name, status, description, lead) VALUES (?, ?, ?, ?)'
-  ).run(name.trim(), status, description, lead);
+  const project = await one(
+    'INSERT INTO projects (name, status, description, lead) VALUES ($1, $2, $3, $4) RETURNING *',
+    [name.trim(), status, description, lead]
+  );
 
   if (googleDrive.isAuthorized()) {
     try {
       const folderId = await googleDrive.getOrCreateProjectFolder(name.trim());
-      db.prepare('UPDATE projects SET drive_folder_id = ? WHERE id = ?').run(folderId, result.lastInsertRowid);
+      await query('UPDATE projects SET drive_folder_id = $1 WHERE id = $2', [folderId, project.id]);
+      project.drive_folder_id = folderId;
     } catch (err) {
       console.error('Failed to create Drive folder for project:', err.message);
     }
   }
 
-  res.status(201).json(db.prepare('SELECT * FROM projects WHERE id = ?').get(result.lastInsertRowid));
+  res.status(201).json(project);
 });
 
 app.patch('/api/projects/:id', async (req, res) => {
   const { id } = req.params;
   const { name, status, description, lead } = req.body;
-  const p = db.prepare('SELECT * FROM projects WHERE id = ?').get(id);
+  const p = await one('SELECT * FROM projects WHERE id = $1', [id]);
   if (!p) return res.status(404).json({ error: 'Project not found' });
   const newName = name ?? p.name;
-  db.prepare('UPDATE projects SET name=?, status=?, description=?, lead=? WHERE id=?')
-    .run(newName, status ?? p.status, description ?? p.description, lead ?? p.lead, id);
+  const updated = await one(
+    'UPDATE projects SET name=$1, status=$2, description=$3, lead=$4 WHERE id=$5 RETURNING *',
+    [newName, status ?? p.status, description ?? p.description, lead ?? p.lead, id]
+  );
 
   if (newName !== p.name && p.drive_folder_id && googleDrive.isAuthorized()) {
     try { await googleDrive.renameProjectFolder(p.drive_folder_id, newName); } catch (err) {
@@ -102,12 +107,12 @@ app.patch('/api/projects/:id', async (req, res) => {
     }
   }
 
-  res.json(db.prepare('SELECT * FROM projects WHERE id = ?').get(id));
+  res.json(updated);
 });
 
 app.delete('/api/projects/:id', async (req, res) => {
   const { id } = req.params;
-  const p = db.prepare('SELECT * FROM projects WHERE id = ?').get(id);
+  const p = await one('SELECT * FROM projects WHERE id = $1', [id]);
   if (!p) return res.status(404).json({ error: 'Not found' });
 
   if (p.drive_folder_id && googleDrive.isAuthorized()) {
@@ -119,8 +124,8 @@ app.delete('/api/projects/:id', async (req, res) => {
     }
   }
 
-  db.prepare('DELETE FROM files WHERE project = ?').run(p.name);
-  db.prepare('DELETE FROM projects WHERE id = ?').run(id);
+  await query('DELETE FROM files WHERE project = $1', [p.name]);
+  await query('DELETE FROM projects WHERE id = $1', [id]);
   res.json({ success: true });
 });
 
@@ -146,8 +151,8 @@ app.get('/api/drive/status', (req, res) => {
 });
 
 // Files
-app.get('/api/files', (req, res) => {
-  const files = db.prepare('SELECT * FROM files ORDER BY created_at DESC').all();
+app.get('/api/files', async (req, res) => {
+  const files = await query('SELECT * FROM files ORDER BY created_at DESC');
   res.json(files);
 });
 
@@ -158,7 +163,7 @@ app.post('/api/files', upload.single('file'), async (req, res) => {
   }
   const { project = '', uploaded_by = '' } = req.body;
   try {
-    const projectRow = project ? db.prepare('SELECT drive_folder_id FROM projects WHERE name = ?').get(project) : null;
+    const projectRow = project ? await one('SELECT drive_folder_id FROM projects WHERE name = $1', [project]) : null;
     const { driveFileId, driveLink } = await googleDrive.uploadFile({
       buffer: req.file.buffer,
       originalName: req.file.originalname,
@@ -166,17 +171,18 @@ app.post('/api/files', upload.single('file'), async (req, res) => {
       project,
       driveFolderId: projectRow?.drive_folder_id || null,
     });
-    const result = db.prepare(
-      'INSERT INTO files (original_name, stored_name, mime_type, size, project, uploaded_by, drive_file_id, drive_link) VALUES (?, ?, ?, ?, ?, ?, ?, ?)'
-    ).run(req.file.originalname, '', req.file.mimetype, req.file.size, project, uploaded_by, driveFileId, driveLink);
-    res.status(201).json(db.prepare('SELECT * FROM files WHERE id = ?').get(result.lastInsertRowid));
+    const file = await one(
+      'INSERT INTO files (original_name, stored_name, mime_type, size, project, uploaded_by, drive_file_id, drive_link) VALUES ($1, $2, $3, $4, $5, $6, $7, $8) RETURNING *',
+      [req.file.originalname, '', req.file.mimetype, req.file.size, project, uploaded_by, driveFileId, driveLink]
+    );
+    res.status(201).json(file);
   } catch (err) {
     res.status(500).json({ error: 'Failed to upload to Google Drive: ' + err.message });
   }
 });
 
 app.get('/api/files/:id/download', async (req, res) => {
-  const file = db.prepare('SELECT * FROM files WHERE id = ?').get(req.params.id);
+  const file = await one('SELECT * FROM files WHERE id = $1', [req.params.id]);
   if (!file) return res.status(404).json({ error: 'Not found' });
   if (!file.drive_file_id) return res.status(410).json({ error: 'File is not available' });
   try {
@@ -190,12 +196,12 @@ app.get('/api/files/:id/download', async (req, res) => {
 });
 
 app.delete('/api/files/:id', async (req, res) => {
-  const file = db.prepare('SELECT * FROM files WHERE id = ?').get(req.params.id);
+  const file = await one('SELECT * FROM files WHERE id = $1', [req.params.id]);
   if (!file) return res.status(404).json({ error: 'Not found' });
   if (file.drive_file_id) await googleDrive.deleteFile(file.drive_file_id);
-  db.prepare('DELETE FROM files WHERE id = ?').run(req.params.id);
+  await query('DELETE FROM files WHERE id = $1', [req.params.id]);
   res.json({ success: true });
 });
 
-const PORT = 3001;
+const PORT = process.env.PORT || 3001;
 app.listen(PORT, () => console.log(`Server running on http://localhost:${PORT}`));

@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import ProjectDetail from './ProjectDetail';
+import { apiUrl } from '../api';
 import './Projects.css';
 
 const STATUSES = ['active', 'pipeline', 'on-hold', 'closed'];
@@ -19,7 +20,7 @@ export default function Projects() {
   async function fetchProjects() {
     try {
       setLoading(true);
-      const res = await fetch('/api/projects');
+      const res = await fetch(apiUrl('/api/projects'));
       setProjects(await res.json());
     } catch {}
     finally { setLoading(false); }
@@ -29,7 +30,7 @@ export default function Projects() {
     e.preventDefault();
     setSaving(true);
     try {
-      const res = await fetch('/api/projects', {
+      const res = await fetch(apiUrl('/api/projects'), {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(form),
@@ -45,7 +46,7 @@ export default function Projects() {
   async function deleteProject(id, e) {
     e.stopPropagation();
     if (!confirm('Delete this project?')) return;
-    await fetch(`/api/projects/${id}`, { method: 'DELETE' });
+    await fetch(apiUrl(`/api/projects/${id}`), { method: 'DELETE' });
     setProjects(prev => prev.filter(p => p.id !== id));
   }
 
