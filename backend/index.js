@@ -11,18 +11,6 @@ const app = express();
 app.use(cors());
 app.use(express.json());
 
-// TEMPORARY debug route, remove after diagnosing Drive folder ID issue
-app.get('/api/debug/drive', (req, res) => {
-  const raw = process.env.GOOGLE_DRIVE_ROOT_FOLDER_ID;
-  res.json({
-    rootFolderIdRaw: raw,
-    rootFolderIdLength: raw ? raw.length : 0,
-    rootFolderIdJSON: JSON.stringify(raw),
-    isAuthorized: googleDrive.isAuthorized(),
-    isConfigured: googleDrive.isConfigured(),
-  });
-});
-
 app.get('/api/tasks', async (req, res) => {
   const tasks = await query('SELECT * FROM tasks ORDER BY created_at DESC');
   res.json(tasks);

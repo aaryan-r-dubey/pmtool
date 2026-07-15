@@ -85,7 +85,7 @@ async function createFolder(name, parentId) {
 }
 
 async function getRootFolderId() {
-  if (process.env.GOOGLE_DRIVE_ROOT_FOLDER_ID) return process.env.GOOGLE_DRIVE_ROOT_FOLDER_ID;
+  if (process.env.GOOGLE_DRIVE_ROOT_FOLDER_ID) return process.env.GOOGLE_DRIVE_ROOT_FOLDER_ID.trim();
   if (!rootFolderIdPromise) {
     rootFolderIdPromise = (async () => {
       const existing = await findFolder(ROOT_FOLDER_NAME, null);
