@@ -139,14 +139,8 @@ app.get('/auth/google/callback', async (req, res) => {
   const { code } = req.query;
   if (!code) return res.status(400).send('Missing code');
   try {
-    const refreshToken = await googleDrive.handleOAuthCallback(code);
-    if (refreshToken) {
-      // TEMPORARY: shows the refresh token once so it can be copied into the
-      // GOOGLE_REFRESH_TOKEN env var. Remove this branch once that's done.
-      res.send(`Google Drive connected.<br><br>Copy this into Railway's GOOGLE_REFRESH_TOKEN variable:<br><code>${refreshToken}</code>`);
-    } else {
-      res.send('Google Drive connected (no new refresh token issued). You can close this tab.');
-    }
+    await googleDrive.handleOAuthCallback(code);
+    res.send('Google Drive connected. You can close this tab.');
   } catch (err) {
     res.status(500).send('Failed to connect Google Drive: ' + err.message);
   }
