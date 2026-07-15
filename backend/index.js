@@ -150,6 +150,61 @@ app.get('/api/drive/status', (req, res) => {
   res.json({ configured: googleDrive.isConfigured(), authorized: googleDrive.isAuthorized() });
 });
 
+app.post('/api/drive/sync', async (req, res) => {
+  if (!googleDrive.isAuthorized()) {
+    return res.status(503).json({ error: 'Google Drive is not connected. Visit /auth/google to connect it.' });
+  }
+  try {
+    const rootId = await googleDrive.getRootFolder();
+    const driveFolders = await googleDrive.listChildFolders(rootId);
+
+    const existingProjects = await query('SELECT * FROM projects');
+    const byFolderId = new Map(existingProjects.filter(p => p.drive_folder_id).map(p => [p.drive_folder_id, p]));
+    const byName = new Map(existingProjects.map(p => [p.name, p]));
+
+    let projectsImported = 0;
+    let filesImported = 0;
+
+    for (const folder of driveFolders) {
+      if (byFolderId.has(folder.id)) continue;
+
+      const existingByName = byName.get(folder.name);
+      if (existingByName) {
+        await query('UPDATE projects SET drive_folder_id = $1 WHERE id = $2', [folder.id, existingByName.id]);
+        byFolderId.set(folder.id, { ...existingByName, drive_folder_id: folder.id });
+      } else {
+        const project = await one(
+          'INSERT INTO projects (name, status, drive_folder_id) VALUES ($1, $2, $3) RETURNING *',
+          [folder.name, 'active', folder.id]
+        );
+        byFolderId.set(folder.id, project);
+        byName.set(project.name, project);
+        projectsImported++;
+      }
+    }
+
+    const existingFiles = await query('SELECT drive_file_id FROM files WHERE drive_file_id IS NOT NULL AND drive_file_id != $1', ['']);
+    const knownFileIds = new Set(existingFiles.map(f => f.drive_file_id));
+
+    for (const project of byFolderId.values()) {
+      const driveFiles = await googleDrive.listChildFiles(project.drive_folder_id);
+      for (const file of driveFiles) {
+        if (knownFileIds.has(file.id)) continue;
+        await query(
+          'INSERT INTO files (original_name, stored_name, mime_type, size, project, uploaded_by, drive_file_id, drive_link) VALUES ($1, $2, $3, $4, $5, $6, $7, $8)',
+          [file.name, '', file.mimeType || '', Number(file.size) || 0, project.name, '', file.id, file.webViewLink || '']
+        );
+        knownFileIds.add(file.id);
+        filesImported++;
+      }
+    }
+
+    res.json({ projectsImported, filesImported });
+  } catch (err) {
+    res.status(500).json({ error: 'Failed to sync from Drive: ' + err.message });
+  }
+});
+
 // Files
 app.get('/api/files', async (req, res) => {
   const files = await query('SELECT * FROM files ORDER BY created_at DESC');

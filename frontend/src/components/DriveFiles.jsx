@@ -57,6 +57,7 @@ export default function DriveFiles() {
   const [dragOver, setDragOver] = useState(false);
   const [selectedFiles, setSelectedFiles] = useState([]);
   const [driveStatus, setDriveStatus] = useState(null);
+  const [syncing, setSyncing] = useState(false);
   const fileInputRef = useRef();
 
   useEffect(() => {
@@ -98,6 +99,20 @@ export default function DriveFiles() {
       alert(err.message || 'Upload failed.');
     }
     setUploading(false);
+  }
+
+  async function syncFromDrive() {
+    setSyncing(true);
+    try {
+      const res = await fetch(apiUrl('/api/drive/sync'), { method: 'POST' });
+      const body = await res.json();
+      if (!res.ok) throw new Error(body.error || 'Sync failed.');
+      await fetchFiles();
+      alert(`Synced from Drive: ${body.projectsImported} project(s), ${body.filesImported} file(s) imported.`);
+    } catch (err) {
+      alert(err.message || 'Sync failed.');
+    }
+    setSyncing(false);
   }
 
   async function deleteFile(id) {
@@ -170,9 +185,14 @@ export default function DriveFiles() {
             {!searching && openFolder === null ? ` in ${folders.length} folder${folders.length !== 1 ? 's' : ''}` : ''}
           </p>
         </div>
-        <button className="btn-primary" onClick={() => setShowUpload(v => !v)}>
-          {showUpload ? 'Cancel' : '+ Upload Files'}
-        </button>
+        <div style={{display:'flex', gap:8}}>
+          <button className="filter-btn" onClick={syncFromDrive} disabled={syncing || !driveStatus?.authorized}>
+            {syncing ? 'Syncing...' : '⟳ Sync from Drive'}
+          </button>
+          <button className="btn-primary" onClick={() => setShowUpload(v => !v)}>
+            {showUpload ? 'Cancel' : '+ Upload Files'}
+          </button>
+        </div>
       </div>
 
       {showUpload && (
@@ -302,7 +322,7 @@ export default function DriveFiles() {
                 <span>{f.uploaded_by || '—'}</span>
                 <span>{formatSize(f.size)}</span>
                 <div className="file-card-actions">
-                  <a href={`/api/files/${f.id}/download`} className="action-btn-link" title="Download">⬇</a>
+                  <a href={apiUrl(`/api/files/${f.id}/download`)} className="action-btn-link" title="Download">⬇</a>
                   <button className="action-btn delete" onClick={() => deleteFile(f.id)} title="Delete">✕</button>
                 </div>
               </div>

@@ -7,7 +7,7 @@ import { Readable } from 'stream';
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const TOKEN_PATH = join(__dirname, 'google-token.json');
 
-const SCOPES = ['https://www.googleapis.com/auth/drive.file'];
+const SCOPES = ['https://www.googleapis.com/auth/drive'];
 
 function loadStoredRefreshToken() {
   if (existsSync(TOKEN_PATH)) {
@@ -140,4 +140,29 @@ export async function deleteFile(driveFileId) {
   try {
     await drive.files.delete({ fileId: driveFileId });
   } catch {}
+}
+
+export async function listChildFolders(parentId) {
+  const res = await drive.files.list({
+    q: `mimeType = 'application/vnd.google-apps.folder' and trashed = false and '${parentId}' in parents`,
+    fields: 'files(id, name)',
+    spaces: 'drive',
+    pageSize: 1000,
+  });
+  return res.data.files || [];
+}
+
+export async function listChildFiles(parentId) {
+  const res = await drive.files.list({
+    q: `mimeType != 'application/vnd.google-apps.folder' and trashed = false and '${parentId}' in parents`,
+    fields: 'files(id, name, mimeType, size, webViewLink)',
+    spaces: 'drive',
+    pageSize: 1000,
+  });
+  return res.data.files || [];
+}
+
+export async function getRootFolder() {
+  const id = await getRootFolderId();
+  return id;
 }

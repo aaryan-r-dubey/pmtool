@@ -282,7 +282,7 @@ export default function ProjectDetail({ project: initial, onBack, onUpdate }) {
                     <span className="proj-task-owner">{f.uploaded_by || '—'}</span>
                     <span className="proj-task-owner">{formatSize(f.size)}</span>
                     <div className="row-actions">
-                      <a href={`/api/files/${f.id}/download`} className="action-btn-link" title="Download">⬇</a>
+                      <a href={apiUrl(`/api/files/${f.id}/download`)} className="action-btn-link" title="Download">⬇</a>
                       <button type="button" className="action-btn delete" onClick={() => deleteFile(f.id)} title="Delete">✕</button>
                     </div>
                   </div>
