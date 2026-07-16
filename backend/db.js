@@ -49,6 +49,23 @@ await pool.query(`
   )
 `);
 
+await pool.query(`
+  CREATE TABLE IF NOT EXISTS contacts (
+    id SERIAL PRIMARY KEY,
+    name TEXT NOT NULL,
+    type TEXT NOT NULL DEFAULT 'founder',
+    startup TEXT DEFAULT '',
+    role TEXT DEFAULT '',
+    email TEXT DEFAULT '',
+    phone TEXT DEFAULT '',
+    connected_on TEXT DEFAULT '',
+    status TEXT NOT NULL DEFAULT 'active',
+    notes TEXT DEFAULT '',
+    created_at TIMESTAMPTZ DEFAULT now(),
+    updated_at TIMESTAMPTZ DEFAULT NULL
+  )
+`);
+
 export async function query(text, params) {
   const res = await pool.query(text, params);
   return res.rows;

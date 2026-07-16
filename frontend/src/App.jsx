@@ -6,6 +6,7 @@ import Tasks from './components/Tasks';
 import PendingTasks from './components/PendingTasks';
 import Calendar from './components/Calendar';
 import DriveFiles from './components/DriveFiles';
+import Contacts from './components/Contacts';
 import './App.css';
 
 export default function App() {
@@ -18,6 +19,7 @@ export default function App() {
     pending: <PendingTasks />,
     calendar: <Calendar />,
     files: <DriveFiles />,
+    contacts: <Contacts />,
   };
 
   return (

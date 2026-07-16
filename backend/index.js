@@ -129,6 +129,56 @@ app.delete('/api/projects/:id', async (req, res) => {
   res.json({ success: true });
 });
 
+// Contacts (founders / startups)
+app.get('/api/contacts', async (req, res) => {
+  const contacts = await query('SELECT * FROM contacts ORDER BY created_at DESC');
+  res.json(contacts);
+});
+
+app.post('/api/contacts', async (req, res) => {
+  const { name, type = 'founder', startup = '', role = '', email = '', phone = '', connected_on = '', status = 'active', notes = '' } = req.body;
+  if (!name?.trim()) return res.status(400).json({ error: 'Name is required' });
+  const contact = await one(
+    'INSERT INTO contacts (name, type, startup, role, email, phone, connected_on, status, notes) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9) RETURNING *',
+    [name.trim(), type, startup, role, email, phone, connected_on, status, notes]
+  );
+  res.status(201).json(contact);
+});
+
+app.patch('/api/contacts/:id', async (req, res) => {
+  const { id } = req.params;
+  const { name, type, startup, role, email, phone, connected_on, status, notes } = req.body;
+  const contact = await one('SELECT * FROM contacts WHERE id = $1', [id]);
+  if (!contact) return res.status(404).json({ error: 'Contact not found' });
+  const updated = await one(
+    `UPDATE contacts SET
+      name = $1, type = $2, startup = $3, role = $4, email = $5, phone = $6, connected_on = $7, status = $8, notes = $9,
+      updated_at = now()
+    WHERE id = $10 RETURNING *`,
+    [
+      name ?? contact.name,
+      type ?? contact.type,
+      startup ?? contact.startup,
+      role ?? contact.role,
+      email ?? contact.email,
+      phone ?? contact.phone,
+      connected_on ?? contact.connected_on,
+      status ?? contact.status,
+      notes ?? contact.notes,
+      id,
+    ]
+  );
+  res.json(updated);
+});
+
+app.delete('/api/contacts/:id', async (req, res) => {
+  const { id } = req.params;
+  const contact = await one('SELECT * FROM contacts WHERE id = $1', [id]);
+  if (!contact) return res.status(404).json({ error: 'Not found' });
+  await query('DELETE FROM contacts WHERE id = $1', [id]);
+  res.json({ success: true });
+});
+
 // Google Drive OAuth
 app.get('/auth/google', (req, res) => {
   if (!googleDrive.isConfigured()) return res.status(500).send('Google OAuth is not configured. Set GOOGLE_CLIENT_ID, GOOGLE_CLIENT_SECRET, GOOGLE_REDIRECT_URI in backend/.env');

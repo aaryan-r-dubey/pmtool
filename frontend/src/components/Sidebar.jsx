@@ -7,6 +7,7 @@ const nav = [
   { key: 'pending', label: 'Pending Tasks', icon: '◷' },
   { key: 'calendar', label: 'Calendar', icon: '◻' },
   { key: 'files', label: 'Drive Files', icon: '◈' },
+  { key: 'contacts', label: 'Application Database', icon: '☰' },
 ];
 
 export default function Sidebar({ active, onNav }) {
