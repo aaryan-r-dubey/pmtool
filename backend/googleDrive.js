@@ -53,6 +53,7 @@ export async function handleOAuthCallback(code) {
   if (tokens.refresh_token) {
     writeFileSync(TOKEN_PATH, JSON.stringify({ refresh_token: tokens.refresh_token }, null, 2));
   }
+  return tokens.refresh_token;
 }
 
 const drive = google.drive({ version: 'v3', auth: oauth2Client });
