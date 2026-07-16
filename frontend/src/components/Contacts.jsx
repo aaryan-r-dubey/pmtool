@@ -2,7 +2,11 @@ import { useState, useEffect } from 'react';
 import { apiUrl } from '../api';
 import './Contacts.css';
 
-const TYPES = ['all', 'founder', 'startup', 'investor', 'partner', 'other'];
+const TABS = [
+  { key: 'founder', label: 'Founders' },
+  { key: 'startup', label: 'Startups' },
+  { key: 'contact', label: 'Contacts' },
+];
 const STATUSES = ['all', 'active', 'cold', 'archived'];
 
 const EMPTY_FORM = { name: '', type: 'founder', startup: '', role: '', email: '', phone: '', connected_on: '', status: 'active', notes: '' };
@@ -11,7 +15,7 @@ export default function Contacts() {
   const [contacts, setContacts] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
-  const [filterType, setFilterType] = useState('all');
+  const [tab, setTab] = useState('founder');
   const [filterStatus, setFilterStatus] = useState('all');
   const [search, setSearch] = useState('');
   const [showForm, setShowForm] = useState(false);
@@ -44,7 +48,7 @@ export default function Contacts() {
       const res = await fetch(apiUrl('/api/contacts'), {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(form),
+        body: JSON.stringify({ ...form, type: tab }),
       });
       if (!res.ok) throw new Error();
       const contact = await res.json();
@@ -94,7 +98,7 @@ export default function Contacts() {
   }
 
   const filtered = contacts.filter(c => {
-    if (filterType !== 'all' && c.type !== filterType) return false;
+    if (c.type !== tab) return false;
     if (filterStatus !== 'all' && c.status !== filterStatus) return false;
     if (search) {
       const q = search.toLowerCase();
@@ -108,11 +112,19 @@ export default function Contacts() {
       <div className="page-header">
         <div>
           <h1>Application Database</h1>
-          <p className="page-sub">{filtered.length} of {contacts.length} founders, startups & contacts</p>
+          <p className="page-sub">{filtered.length} of {contacts.filter(c => c.type === tab).length} {TABS.find(t => t.key === tab).label.toLowerCase()}</p>
         </div>
         <button className="btn-primary" onClick={() => { setShowForm(v => !v); setForm(EMPTY_FORM); }}>
-          {showForm ? 'Cancel' : '+ Add Contact'}
+          {showForm ? 'Cancel' : `+ Add ${TABS.find(t => t.key === tab).label.replace(/s$/, '')}`}
         </button>
+      </div>
+
+      <div className="tabs">
+        {TABS.map(t => (
+          <button key={t.key} className={`tab-btn ${tab === t.key ? 'active' : ''}`} onClick={() => { setTab(t.key); setShowForm(false); setEditingId(null); }}>
+            {t.label}
+          </button>
+        ))}
       </div>
 
       {showForm && (
@@ -126,13 +138,6 @@ export default function Contacts() {
               required
               autoFocus
             />
-            <select className="form-input" value={form.type} onChange={e => setForm(f => ({ ...f, type: e.target.value }))}>
-              <option value="founder">Founder</option>
-              <option value="startup">Startup</option>
-              <option value="investor">Investor</option>
-              <option value="partner">Partner</option>
-              <option value="other">Other</option>
-            </select>
           </div>
           <div className="form-row">
             <input className="form-input flex-1" placeholder="Startup / company" value={form.startup} onChange={e => setForm(f => ({ ...f, startup: e.target.value }))} />
@@ -166,13 +171,6 @@ export default function Contacts() {
       <div className="filters">
         <input className="search-input" placeholder="Search name, startup, email..." value={search} onChange={e => setSearch(e.target.value)} />
         <div className="filter-group">
-          {TYPES.map(t => (
-            <button key={t} className={`filter-btn ${filterType === t ? 'active' : ''}`} onClick={() => setFilterType(t)}>
-              {t === 'all' ? 'All' : t.charAt(0).toUpperCase() + t.slice(1)}
-            </button>
-          ))}
-        </div>
-        <div className="filter-group">
           {STATUSES.map(s => (
             <button key={s} className={`filter-btn ${filterStatus === s ? 'active' : ''}`} onClick={() => setFilterStatus(s)}>
               {s === 'all' ? 'All' : s.charAt(0).toUpperCase() + s.slice(1)}
@@ -186,7 +184,6 @@ export default function Contacts() {
       <div className="contact-table card">
         <div className="table-head">
           <span>Name</span>
-          <span>Type</span>
           <span>Startup</span>
           <span>Email</span>
           <span>Phone</span>
@@ -208,12 +205,10 @@ export default function Contacts() {
                 <div className="edit-main">
                   <div className="form-row">
                     <input className="form-input flex-1" value={editForm.name} onChange={e => setEditForm(f => ({ ...f, name: e.target.value }))} autoFocus placeholder="Name" />
-                    <select className="form-input" value={editForm.type} onChange={e => setEditForm(f => ({ ...f, type: e.target.value }))}>
+                    <select className="form-input" value={editForm.type} onChange={e => setEditForm(f => ({ ...f, type: e.target.value }))} title="Category">
                       <option value="founder">Founder</option>
                       <option value="startup">Startup</option>
-                      <option value="investor">Investor</option>
-                      <option value="partner">Partner</option>
-                      <option value="other">Other</option>
+                      <option value="contact">Contact</option>
                     </select>
                   </div>
                   <div className="form-row">
@@ -251,7 +246,6 @@ export default function Contacts() {
                   <span className="contact-name-text">{c.name}</span>
                   {c.role && <span className="contact-sub">{c.role}</span>}
                 </div>
-                <span className={`type-chip ${c.type}`}>{c.type}</span>
                 <span className="cell-muted">{c.startup || '—'}</span>
                 <span className="cell-muted">{c.email || '—'}</span>
                 <span className="cell-muted">{c.phone || '—'}</span>
