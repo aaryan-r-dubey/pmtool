@@ -109,6 +109,10 @@ export async function getOrCreateProjectFolder(projectName) {
   return folderId;
 }
 
+export async function createFolderIn(name, parentId) {
+  return createFolder(name, parentId);
+}
+
 export async function renameProjectFolder(folderId, newName) {
   await drive.files.update({ fileId: folderId, requestBody: { name: newName } });
 }

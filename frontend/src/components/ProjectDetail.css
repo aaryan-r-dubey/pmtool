@@ -135,6 +135,12 @@
 .proj-file-row:last-child { border-bottom: none; }
 .proj-file-row:hover { background: var(--bg); }
 .proj-file-name { font-size: 13px; font-weight: 500; color: var(--text); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.proj-file-name.folder-name { cursor: pointer; }
+.proj-file-name.folder-name:hover { color: var(--accent); text-decoration: underline; }
+
+.proj-file-breadcrumb { font-size: 12px; color: var(--text-muted); margin-top: -4px; }
+.breadcrumb-link { cursor: pointer; }
+.breadcrumb-link:hover { color: var(--accent); text-decoration: underline; }
 
 .row-actions { display: flex; gap: 4px; }
 .action-btn-link {

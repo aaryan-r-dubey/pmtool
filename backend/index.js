@@ -125,6 +125,7 @@ app.delete('/api/projects/:id', async (req, res) => {
   }
 
   await query('DELETE FROM files WHERE project = $1', [p.name]);
+  await query('DELETE FROM folders WHERE project = $1', [p.name]);
   await query('DELETE FROM projects WHERE id = $1', [id]);
   res.json({ success: true });
 });
@@ -255,9 +256,76 @@ app.post('/api/drive/sync', async (req, res) => {
   }
 });
 
+// Folders
+app.get('/api/folders', async (req, res) => {
+  const { project = '', parent } = req.query;
+  const params = [project];
+  let where = 'project = $1';
+  if (parent === undefined || parent === '' || parent === 'null') {
+    where += ' AND parent_folder_id IS NULL';
+  } else {
+    params.push(parent);
+    where += ` AND parent_folder_id = $${params.length}`;
+  }
+  const folders = await query(`SELECT * FROM folders WHERE ${where} ORDER BY name ASC`, params);
+  res.json(folders);
+});
+
+app.post('/api/folders', async (req, res) => {
+  const { name, project = '', parent_folder_id = null } = req.body;
+  if (!name?.trim()) return res.status(400).json({ error: 'Name is required' });
+  if (!googleDrive.isAuthorized()) {
+    return res.status(503).json({ error: 'Google Drive is not connected. Visit /auth/google to connect it.' });
+  }
+  try {
+    let parentDriveId;
+    if (parent_folder_id) {
+      const parentFolder = await one('SELECT drive_folder_id FROM folders WHERE id = $1', [parent_folder_id]);
+      if (!parentFolder) return res.status(404).json({ error: 'Parent folder not found' });
+      parentDriveId = parentFolder.drive_folder_id;
+    } else {
+      const projectRow = await one('SELECT drive_folder_id FROM projects WHERE name = $1', [project]);
+      parentDriveId = projectRow?.drive_folder_id || await googleDrive.getOrCreateProjectFolder(project);
+    }
+    const driveFolderId = await googleDrive.createFolderIn(name.trim(), parentDriveId);
+    const folder = await one(
+      'INSERT INTO folders (name, project, parent_folder_id, drive_folder_id) VALUES ($1, $2, $3, $4) RETURNING *',
+      [name.trim(), project, parent_folder_id || null, driveFolderId]
+    );
+    res.status(201).json(folder);
+  } catch (err) {
+    res.status(500).json({ error: 'Failed to create folder in Google Drive: ' + err.message });
+  }
+});
+
+app.delete('/api/folders/:id', async (req, res) => {
+  const folder = await one('SELECT * FROM folders WHERE id = $1', [req.params.id]);
+  if (!folder) return res.status(404).json({ error: 'Not found' });
+  if (folder.drive_folder_id && googleDrive.isAuthorized()) {
+    try { await googleDrive.trashFolder(folder.drive_folder_id); } catch (err) {
+      console.error('Failed to trash Drive folder:', err.message);
+    }
+  }
+  await query('DELETE FROM folders WHERE id = $1', [req.params.id]);
+  res.json({ success: true });
+});
+
 // Files
 app.get('/api/files', async (req, res) => {
-  const files = await query('SELECT * FROM files ORDER BY created_at DESC');
+  const { project, folder } = req.query;
+  if (project === undefined) {
+    const files = await query('SELECT * FROM files ORDER BY created_at DESC');
+    return res.json(files);
+  }
+  const params = [project];
+  let where = 'project = $1';
+  if (folder === undefined || folder === '' || folder === 'null') {
+    where += ' AND folder_id IS NULL';
+  } else {
+    params.push(folder);
+    where += ` AND folder_id = $${params.length}`;
+  }
+  const files = await query(`SELECT * FROM files WHERE ${where} ORDER BY created_at DESC`, params);
   res.json(files);
 });
 
@@ -266,19 +334,27 @@ app.post('/api/files', upload.single('file'), async (req, res) => {
   if (!googleDrive.isAuthorized()) {
     return res.status(503).json({ error: 'Google Drive is not connected. Visit /auth/google to connect it.' });
   }
-  const { project = '', uploaded_by = '' } = req.body;
+  const { project = '', uploaded_by = '', folder_id = null } = req.body;
   try {
-    const projectRow = project ? await one('SELECT drive_folder_id FROM projects WHERE name = $1', [project]) : null;
+    let driveFolderId = null;
+    if (folder_id) {
+      const folderRow = await one('SELECT drive_folder_id FROM folders WHERE id = $1', [folder_id]);
+      if (!folderRow) return res.status(404).json({ error: 'Folder not found' });
+      driveFolderId = folderRow.drive_folder_id;
+    } else {
+      const projectRow = project ? await one('SELECT drive_folder_id FROM projects WHERE name = $1', [project]) : null;
+      driveFolderId = projectRow?.drive_folder_id || null;
+    }
     const { driveFileId, driveLink } = await googleDrive.uploadFile({
       buffer: req.file.buffer,
       originalName: req.file.originalname,
       mimeType: req.file.mimetype,
       project,
-      driveFolderId: projectRow?.drive_folder_id || null,
+      driveFolderId,
     });
     const file = await one(
-      'INSERT INTO files (original_name, stored_name, mime_type, size, project, uploaded_by, drive_file_id, drive_link) VALUES ($1, $2, $3, $4, $5, $6, $7, $8) RETURNING *',
-      [req.file.originalname, '', req.file.mimetype, req.file.size, project, uploaded_by, driveFileId, driveLink]
+      'INSERT INTO files (original_name, stored_name, mime_type, size, project, uploaded_by, drive_file_id, drive_link, folder_id) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9) RETURNING *',
+      [req.file.originalname, '', req.file.mimetype, req.file.size, project, uploaded_by, driveFileId, driveLink, folder_id || null]
     );
     res.status(201).json(file);
   } catch (err) {

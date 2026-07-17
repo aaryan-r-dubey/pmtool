@@ -26,25 +26,79 @@ export default function ProjectDetail({ project: initial, onBack, onUpdate }) {
   const [savingTask, setSavingTask] = useState(false);
 
   const [files, setFiles] = useState([]);
+  const [folders, setFolders] = useState([]);
+  const [folderPath, setFolderPath] = useState([]); // [{id, name}, ...]
   const [showFileForm, setShowFileForm] = useState(false);
   const [selectedFiles, setSelectedFiles] = useState([]);
   const [uploadedBy, setUploadedBy] = useState('');
   const [uploading, setUploading] = useState(false);
+  const [showFolderForm, setShowFolderForm] = useState(false);
+  const [folderName, setFolderName] = useState('');
+  const [creatingFolder, setCreatingFolder] = useState(false);
+
+  const currentFolderId = folderPath.length ? folderPath[folderPath.length - 1].id : null;
 
   useEffect(() => {
     fetch(apiUrl('/api/tasks'))
       .then(r => r.json())
       .then(all => setTasks(all.filter(t => t.project === project.name)))
       .catch(() => {});
-    fetchFiles();
   }, [project.name]);
 
-  async function fetchFiles() {
+  useEffect(() => {
+    fetchFolderContents();
+  }, [project.name, currentFolderId]);
+
+  async function fetchFolderContents() {
     try {
-      const res = await fetch(apiUrl('/api/files'));
-      const all = await res.json();
-      setFiles(all.filter(f => f.project === project.name));
+      const folderParam = currentFolderId == null ? '' : `&folder=${currentFolderId}`;
+      const parentParam = currentFolderId == null ? '' : `&parent=${currentFolderId}`;
+      const [filesRes, foldersRes] = await Promise.all([
+        fetch(apiUrl(`/api/files?project=${encodeURIComponent(project.name)}${folderParam}`)),
+        fetch(apiUrl(`/api/folders?project=${encodeURIComponent(project.name)}${parentParam}`)),
+      ]);
+      setFiles(await filesRes.json());
+      setFolders(await foldersRes.json());
     } catch {}
+  }
+
+  function openFolder(folder) {
+    setFolderPath(prev => [...prev, { id: folder.id, name: folder.name }]);
+  }
+
+  function goToBreadcrumb(index) {
+    setFolderPath(prev => prev.slice(0, index + 1));
+  }
+
+  async function addFolder(e) {
+    e.preventDefault();
+    if (!folderName.trim()) return;
+    setCreatingFolder(true);
+    try {
+      const res = await fetch(apiUrl('/api/folders'), {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ name: folderName.trim(), project: project.name, parent_folder_id: currentFolderId }),
+      });
+      if (!res.ok) {
+        const body = await res.json().catch(() => ({}));
+        throw new Error(body.error || 'Failed to create folder.');
+      }
+      const folder = await res.json();
+      setFolders(prev => [...prev, folder].sort((a, b) => a.name.localeCompare(b.name)));
+      setFolderName('');
+      setShowFolderForm(false);
+    } catch (err) {
+      alert(err.message || 'Failed to create folder.');
+    } finally {
+      setCreatingFolder(false);
+    }
+  }
+
+  async function deleteFolder(id) {
+    if (!confirm('Delete this folder and everything inside it?')) return;
+    await fetch(apiUrl(`/api/folders/${id}`), { method: 'DELETE' });
+    setFolders(prev => prev.filter(f => f.id !== id));
   }
 
   async function addTask(e) {
@@ -79,13 +133,14 @@ export default function ProjectDetail({ project: initial, onBack, onUpdate }) {
         fd.append('file', file);
         fd.append('project', project.name);
         fd.append('uploaded_by', uploadedBy);
+        if (currentFolderId != null) fd.append('folder_id', currentFolderId);
         const res = await fetch(apiUrl('/api/files'), { method: 'POST', body: fd });
         if (!res.ok) {
           const body = await res.json().catch(() => ({}));
           throw new Error(body.error || 'Upload failed.');
         }
       }
-      await fetchFiles();
+      await fetchFolderContents();
       setShowFileForm(false);
       setSelectedFiles([]);
       setUploadedBy('');
@@ -250,10 +305,40 @@ export default function ProjectDetail({ project: initial, onBack, onUpdate }) {
           <div className="proj-files-section">
             <div className="section-header-row">
               <span className="section-label">Files</span>
-              <button className="btn-outline btn-sm" onClick={() => setShowFileForm(v => !v)}>
-                {showFileForm ? 'Cancel' : '+ Add File'}
-              </button>
+              <div className="row-actions">
+                <button className="btn-outline btn-sm" onClick={() => setShowFolderForm(v => !v)}>
+                  {showFolderForm ? 'Cancel' : '+ Add Folder'}
+                </button>
+                <button className="btn-outline btn-sm" onClick={() => setShowFileForm(v => !v)}>
+                  {showFileForm ? 'Cancel' : '+ Add File'}
+                </button>
+              </div>
             </div>
+
+            <div className="proj-file-breadcrumb">
+              <span className="breadcrumb-link" onClick={() => setFolderPath([])}>Files</span>
+              {folderPath.map((f, i) => (
+                <span key={f.id}>
+                  {' / '}
+                  <span className="breadcrumb-link" onClick={() => goToBreadcrumb(i)}>{f.name}</span>
+                </span>
+              ))}
+            </div>
+
+            {showFolderForm && (
+              <form className="inline-add-form" onSubmit={addFolder}>
+                <input
+                  className="form-input"
+                  placeholder="Folder name"
+                  value={folderName}
+                  onChange={e => setFolderName(e.target.value)}
+                  required autoFocus
+                />
+                <button type="submit" className="btn-primary" disabled={!folderName.trim() || creatingFolder}>
+                  {creatingFolder ? 'Creating...' : 'Create Folder'}
+                </button>
+              </form>
+            )}
 
             {showFileForm && (
               <form className="inline-add-form" onSubmit={uploadFiles}>
@@ -272,10 +357,20 @@ export default function ProjectDetail({ project: initial, onBack, onUpdate }) {
               </form>
             )}
 
-            {files.length === 0 ? (
-              <p className="empty-state">No files uploaded to this project yet.</p>
+            {folders.length === 0 && files.length === 0 ? (
+              <p className="empty-state">No files or folders here yet.</p>
             ) : (
               <div className="proj-task-list">
+                {folders.map(f => (
+                  <div key={`folder-${f.id}`} className="proj-file-row">
+                    <span className="proj-file-name folder-name" onClick={() => openFolder(f)} title="Open folder">📁 {f.name}</span>
+                    <span className="proj-task-owner">—</span>
+                    <span className="proj-task-owner">—</span>
+                    <div className="row-actions">
+                      <button type="button" className="action-btn delete" onClick={() => deleteFolder(f.id)} title="Delete">✕</button>
+                    </div>
+                  </div>
+                ))}
                 {files.map(f => (
                   <div key={f.id} className="proj-file-row">
                     <span className="proj-file-name">{f.original_name}</span>

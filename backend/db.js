@@ -35,6 +35,17 @@ await pool.query(`
 `);
 
 await pool.query(`
+  CREATE TABLE IF NOT EXISTS folders (
+    id SERIAL PRIMARY KEY,
+    name TEXT NOT NULL,
+    project TEXT DEFAULT '',
+    parent_folder_id INTEGER REFERENCES folders(id) ON DELETE CASCADE,
+    drive_folder_id TEXT DEFAULT '',
+    created_at TIMESTAMPTZ DEFAULT now()
+  )
+`);
+
+await pool.query(`
   CREATE TABLE IF NOT EXISTS files (
     id SERIAL PRIMARY KEY,
     original_name TEXT NOT NULL,
@@ -45,9 +56,12 @@ await pool.query(`
     uploaded_by TEXT DEFAULT '',
     drive_file_id TEXT DEFAULT '',
     drive_link TEXT DEFAULT '',
+    folder_id INTEGER REFERENCES folders(id) ON DELETE CASCADE,
     created_at TIMESTAMPTZ DEFAULT now()
   )
 `);
+
+await pool.query(`ALTER TABLE files ADD COLUMN IF NOT EXISTS folder_id INTEGER REFERENCES folders(id) ON DELETE CASCADE`);
 
 await pool.query(`
   CREATE TABLE IF NOT EXISTS contacts (
