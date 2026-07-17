@@ -60,10 +60,20 @@ export default function DriveFiles() {
   const [syncing, setSyncing] = useState(false);
   const fileInputRef = useRef();
 
+  const [realFolders, setRealFolders] = useState([]);
+  const [folderPath, setFolderPath] = useState([]); // [{id, name}, ...] — real Drive folders, separate from project buckets
+  const [folderFiles, setFolderFiles] = useState([]);
+  const [showFolderForm, setShowFolderForm] = useState(false);
+  const [folderName, setFolderName] = useState('');
+  const [creatingFolder, setCreatingFolder] = useState(false);
+
+  const currentFolderId = folderPath.length ? folderPath[folderPath.length - 1].id : null;
+
   useEffect(() => {
     fetchFiles();
     fetch(apiUrl('/api/projects')).then(r => r.json()).then(setProjects).catch(() => {});
     fetch(apiUrl('/api/drive/status')).then(r => r.json()).then(setDriveStatus).catch(() => {});
+    fetchRealFolders(null);
   }, []);
 
   async function fetchFiles() {
@@ -75,6 +85,74 @@ export default function DriveFiles() {
     setLoading(false);
   }
 
+  async function fetchRealFolders(parentId) {
+    try {
+      const parentParam = parentId == null ? '' : `&parent=${parentId}`;
+      const res = await fetch(apiUrl(`/api/folders?project=${parentParam}`));
+      setRealFolders(await res.json());
+    } catch {}
+  }
+
+  async function fetchFolderFiles(folderId) {
+    try {
+      const res = await fetch(apiUrl(`/api/files?project=&folder=${folderId}`));
+      setFolderFiles(await res.json());
+    } catch {}
+  }
+
+  function openRealFolder(folder) {
+    const newPath = [...folderPath, { id: folder.id, name: folder.name }];
+    setFolderPath(newPath);
+    setOpenFolder(null);
+    fetchRealFolders(folder.id);
+    fetchFolderFiles(folder.id);
+  }
+
+  function goToRealRoot() {
+    setFolderPath([]);
+    setFolderFiles([]);
+    fetchRealFolders(null);
+  }
+
+  function goToRealBreadcrumb(index) {
+    const newPath = folderPath.slice(0, index + 1);
+    setFolderPath(newPath);
+    const id = newPath[newPath.length - 1].id;
+    fetchRealFolders(id);
+    fetchFolderFiles(id);
+  }
+
+  async function addFolder(e) {
+    e.preventDefault();
+    if (!folderName.trim()) return;
+    setCreatingFolder(true);
+    try {
+      const res = await fetch(apiUrl('/api/folders'), {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ name: folderName.trim(), project: '', parent_folder_id: currentFolderId }),
+      });
+      if (!res.ok) {
+        const body = await res.json().catch(() => ({}));
+        throw new Error(body.error || 'Failed to create folder.');
+      }
+      const folder = await res.json();
+      setRealFolders(prev => [...prev, folder].sort((a, b) => a.name.localeCompare(b.name)));
+      setFolderName('');
+      setShowFolderForm(false);
+    } catch (err) {
+      alert(err.message || 'Failed to create folder.');
+    } finally {
+      setCreatingFolder(false);
+    }
+  }
+
+  async function deleteRealFolder(id) {
+    if (!confirm('Delete this folder and everything inside it?')) return;
+    await fetch(apiUrl(`/api/folders/${id}`), { method: 'DELETE' });
+    setRealFolders(prev => prev.filter(f => f.id !== id));
+  }
+
   async function uploadFiles(e) {
     e.preventDefault();
     if (!selectedFiles.length) return;
@@ -83,8 +161,9 @@ export default function DriveFiles() {
       for (const file of selectedFiles) {
         const fd = new FormData();
         fd.append('file', file);
-        fd.append('project', uploadForm.project);
+        fd.append('project', currentFolderId ? '' : uploadForm.project);
         fd.append('uploaded_by', uploadForm.uploaded_by);
+        if (currentFolderId) fd.append('folder_id', currentFolderId);
         const res = await fetch(apiUrl('/api/files'), { method: 'POST', body: fd });
         if (!res.ok) {
           const body = await res.json().catch(() => ({}));
@@ -92,6 +171,7 @@ export default function DriveFiles() {
         }
       }
       await fetchFiles();
+      if (currentFolderId) await fetchFolderFiles(currentFolderId);
       setShowUpload(false);
       setSelectedFiles([]);
       setUploadForm({ project: '', uploaded_by: '' });
@@ -119,6 +199,7 @@ export default function DriveFiles() {
     if (!confirm('Delete this file?')) return;
     await fetch(apiUrl(`/api/files/${id}`), { method: 'DELETE' });
     setFiles(prev => prev.filter(f => f.id !== id));
+    setFolderFiles(prev => prev.filter(f => f.id !== id));
   }
 
   function onDrop(e) {
@@ -140,13 +221,17 @@ export default function DriveFiles() {
     ...projectNames.map(name => ({ key: name, label: name })),
     { key: '', label: 'No Project' },
   ].map(folder => {
-    const folderFiles = files.filter(f => (f.project || '') === folder.key);
-    return { ...folder, files: folderFiles, totalSize: folderFiles.reduce((s, f) => s + (f.size || 0), 0) };
+    const bucketFiles = files.filter(f => (f.project || '') === folder.key);
+    return { ...folder, files: bucketFiles, totalSize: bucketFiles.reduce((s, f) => s + (f.size || 0), 0) };
   }).filter(folder => folder.files.length > 0);
+
+  const inRealFolder = folderPath.length > 0;
 
   const filtered = searching
     ? searchFiltered
-    : files.filter(f => (f.project || '') === openFolder);
+    : inRealFolder
+      ? folderFiles
+      : files.filter(f => (f.project || '') === openFolder);
 
   return (
     <div
@@ -189,11 +274,33 @@ export default function DriveFiles() {
           <button className="filter-btn" onClick={syncFromDrive} disabled={syncing || !driveStatus?.authorized}>
             {syncing ? 'Syncing...' : '⟳ Sync from Drive'}
           </button>
+          {openFolder === null && (
+            <button className="filter-btn back-btn" onClick={() => setShowFolderForm(v => !v)}>
+              {showFolderForm ? 'Cancel' : '+ Add Folder'}
+            </button>
+          )}
           <button className="btn-primary" onClick={() => setShowUpload(v => !v)}>
             {showUpload ? 'Cancel' : '+ Upload Files'}
           </button>
         </div>
       </div>
+
+      {showFolderForm && (
+        <form className="upload-form card" onSubmit={addFolder}>
+          <div className="form-row">
+            <input
+              className="form-input flex-1"
+              placeholder="Folder name"
+              value={folderName}
+              onChange={e => setFolderName(e.target.value)}
+              required autoFocus
+            />
+          </div>
+          <button type="submit" className="btn-primary" disabled={!folderName.trim() || creatingFolder}>
+            {creatingFolder ? 'Creating...' : 'Create Folder'}
+          </button>
+        </form>
+      )}
 
       {showUpload && (
         <form className="upload-form card" onSubmit={uploadFiles}>
@@ -270,7 +377,22 @@ export default function DriveFiles() {
         {!searching && openFolder !== null && (
           <span className="folder-crumb">{openFolder === '' ? 'No Project' : openFolder}</span>
         )}
-        {(searching || openFolder !== null) && (
+        {!searching && inRealFolder && (
+          <button className="filter-btn back-btn" onClick={goToRealRoot}>
+            ← All Folders
+          </button>
+        )}
+        {!searching && inRealFolder && (
+          <span className="folder-crumb">
+            {folderPath.map((f, i) => (
+              <span key={f.id}>
+                {i > 0 && ' / '}
+                <span className="breadcrumb-link" onClick={() => goToRealBreadcrumb(i)}>{f.name}</span>
+              </span>
+            ))}
+          </span>
+        )}
+        {(searching || openFolder !== null || inRealFolder) && (
           <div className="view-toggle">
             <button className={`view-btn ${viewMode === 'grid' ? 'active' : ''}`} onClick={() => setViewMode('grid')}>⊞</button>
             <button className={`view-btn ${viewMode === 'list' ? 'active' : ''}`} onClick={() => setViewMode('list')}>☰</button>
@@ -284,12 +406,27 @@ export default function DriveFiles() {
         <p className="empty-state">No files match your search.</p>
       )}
 
-      {!loading && !searching && files.length === 0 && (
+      {!loading && !searching && !inRealFolder && files.length === 0 && realFolders.length === 0 && (
         <p className="empty-state">No files yet. Click "Upload Files" or drag and drop files anywhere on this page.</p>
       )}
 
-      {!loading && !searching && openFolder === null && files.length > 0 && (
+      {!loading && !searching && openFolder === null && !inRealFolder && (folders.length > 0 || realFolders.length > 0) && (
         <div className="folders-grid">
+          {realFolders.map(folder => (
+            <div key={`real-${folder.id}`} className="folder-card" onClick={() => openRealFolder(folder)}>
+              <div className="folder-card-icon">📁</div>
+              <div className="folder-card-body">
+                <span className="folder-name">{folder.name}</span>
+                <span className="folder-meta">Folder</span>
+              </div>
+              <button
+                type="button"
+                className="action-btn delete folder-delete-btn"
+                title="Delete"
+                onClick={e => { e.stopPropagation(); deleteRealFolder(folder.id); }}
+              >✕</button>
+            </div>
+          ))}
           {folders.map(folder => (
             <button key={folder.key || '__none__'} className="folder-card" onClick={() => setOpenFolder(folder.key)}>
               <div className="folder-card-icon">📁</div>
@@ -302,11 +439,31 @@ export default function DriveFiles() {
         </div>
       )}
 
-      {!loading && (searching || openFolder !== null) && filtered.length === 0 && !searching && (
+      {!loading && !searching && inRealFolder && realFolders.length > 0 && (
+        <div className="folders-grid">
+          {realFolders.map(folder => (
+            <div key={`real-${folder.id}`} className="folder-card" onClick={() => openRealFolder(folder)}>
+              <div className="folder-card-icon">📁</div>
+              <div className="folder-card-body">
+                <span className="folder-name">{folder.name}</span>
+                <span className="folder-meta">Folder</span>
+              </div>
+              <button
+                type="button"
+                className="action-btn delete folder-delete-btn"
+                title="Delete"
+                onClick={e => { e.stopPropagation(); deleteRealFolder(folder.id); }}
+              >✕</button>
+            </div>
+          ))}
+        </div>
+      )}
+
+      {!loading && (searching || openFolder !== null || inRealFolder) && filtered.length === 0 && !searching && (
         <p className="empty-state">No files in this folder.</p>
       )}
 
-      {viewMode === 'grid' && !loading && (searching || openFolder !== null) && filtered.length > 0 && (
+      {viewMode === 'grid' && !loading && (searching || openFolder !== null || inRealFolder) && filtered.length > 0 && (
         <div className="files-grid">
           {filtered.map(f => (
             <div key={f.id} className="file-card-full">
@@ -331,7 +488,7 @@ export default function DriveFiles() {
         </div>
       )}
 
-      {viewMode === 'list' && !loading && (searching || openFolder !== null) && filtered.length > 0 && (
+      {viewMode === 'list' && !loading && (searching || openFolder !== null || inRealFolder) && filtered.length > 0 && (
         <div className="file-list card">
           <div className="file-list-head">
             <span>Name</span>

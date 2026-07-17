@@ -277,9 +277,11 @@ app.post('/api/folders', async (req, res) => {
       const parentFolder = await one('SELECT drive_folder_id FROM folders WHERE id = $1', [parent_folder_id]);
       if (!parentFolder) return res.status(404).json({ error: 'Parent folder not found' });
       parentDriveId = parentFolder.drive_folder_id;
-    } else {
+    } else if (project) {
       const projectRow = await one('SELECT drive_folder_id FROM projects WHERE name = $1', [project]);
       parentDriveId = projectRow?.drive_folder_id || await googleDrive.getOrCreateProjectFolder(project);
+    } else {
+      parentDriveId = await googleDrive.getFilesRoot();
     }
     const driveFolderId = await googleDrive.createFolderIn(name.trim(), parentDriveId);
     const folder = await one(
