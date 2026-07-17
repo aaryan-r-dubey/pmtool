@@ -108,7 +108,7 @@ export default function DriveFiles() {
       const body = await res.json();
       if (!res.ok) throw new Error(body.error || 'Sync failed.');
       await fetchFiles();
-      alert(`Synced from Drive: ${body.projectsImported} project(s), ${body.filesImported} file(s) imported.`);
+      alert(`Synced from Drive: ${body.filesImported} file(s) imported, ${body.projectsLinked} project(s) linked.`);
     } catch (err) {
       alert(err.message || 'Sync failed.');
     }

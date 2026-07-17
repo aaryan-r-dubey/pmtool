@@ -57,10 +57,13 @@ export async function handleOAuthCallback(code) {
 
 const drive = google.drive({ version: 'v3', auth: oauth2Client });
 
-const ROOT_FOLDER_NAME = process.env.GOOGLE_DRIVE_ROOT_FOLDER_NAME || 'UFL Docs';
+// Parent folder that project folders are created inside.
+const PROJECTS_ROOT_ID = process.env.GOOGLE_DRIVE_PROJECTS_ROOT_ID || '1CI1aOrDyaWzf8mwKi_QacnfhZrRZAvcT';
+// Parent folder that the Drive Files page browses/syncs from — kept separate so
+// arbitrary folders/files added there never turn into Projects automatically.
+const FILES_ROOT_ID = process.env.GOOGLE_DRIVE_FILES_ROOT_ID || '1cv0Mz_69aX4-7QJZphQ6_VOo16BGRWfd';
 
 const folderCache = new Map();
-let rootFolderIdPromise = null;
 
 async function findFolder(name, parentId) {
   const parentClause = parentId ? `and '${parentId}' in parents` : "and 'root' in parents";
@@ -84,26 +87,14 @@ async function createFolder(name, parentId) {
   return created.data.id;
 }
 
-async function getRootFolderId() {
-  if (process.env.GOOGLE_DRIVE_ROOT_FOLDER_ID) return process.env.GOOGLE_DRIVE_ROOT_FOLDER_ID.trim();
-  if (!rootFolderIdPromise) {
-    rootFolderIdPromise = (async () => {
-      const existing = await findFolder(ROOT_FOLDER_NAME, null);
-      return existing || createFolder(ROOT_FOLDER_NAME, null);
-    })();
-  }
-  return rootFolderIdPromise;
-}
-
 export async function getOrCreateProjectFolder(projectName) {
   const key = projectName || '__unfiled__';
   if (folderCache.has(key)) return folderCache.get(key);
 
-  const rootId = await getRootFolderId();
   const folderName = projectName || 'Unfiled';
 
-  const existingId = await findFolder(folderName, rootId);
-  const folderId = existingId || await createFolder(folderName, rootId);
+  const existingId = await findFolder(folderName, PROJECTS_ROOT_ID);
+  const folderId = existingId || await createFolder(folderName, PROJECTS_ROOT_ID);
 
   folderCache.set(key, folderId);
   return folderId;
@@ -166,7 +157,6 @@ export async function listChildFiles(parentId) {
   return res.data.files || [];
 }
 
-export async function getRootFolder() {
-  const id = await getRootFolderId();
-  return id;
+export async function getFilesRoot() {
+  return FILES_ROOT_ID;
 }
