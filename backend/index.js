@@ -111,13 +111,21 @@ app.patch('/api/projects/:id', async (req, res) => {
 });
 
 app.delete('/api/projects/:id', async (req, res) => {
-  // TEMP: unlink-only — skips Drive trash + files/folders deletion so removed
-  // projects still show under Drive Files. Revert to the destructive version
-  // (trash Drive folder, delete files/folders/project) when asked.
   const { id } = req.params;
   const p = await one('SELECT * FROM projects WHERE id = $1', [id]);
   if (!p) return res.status(404).json({ error: 'Not found' });
 
+  if (p.drive_folder_id && googleDrive.isAuthorized()) {
+    try {
+      await googleDrive.trashFolder(p.drive_folder_id);
+      googleDrive.invalidateProjectFolderCache(p.name);
+    } catch (err) {
+      console.error('Failed to trash Drive folder:', err.message);
+    }
+  }
+
+  await query('DELETE FROM files WHERE project = $1', [p.name]);
+  await query('DELETE FROM folders WHERE project = $1', [p.name]);
   await query('DELETE FROM projects WHERE id = $1', [id]);
   res.json({ success: true });
 });
