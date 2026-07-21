@@ -201,6 +201,38 @@ app.get('/api/drive/status', (req, res) => {
   res.json({ configured: googleDrive.isConfigured(), authorized: googleDrive.isAuthorized() });
 });
 
+async function syncBrowseFolder(driveFolder, parentDbFolderId, knownFileIds, stats) {
+  let folderRow = await one('SELECT * FROM folders WHERE drive_folder_id = $1', [driveFolder.id]);
+  if (!folderRow) {
+    folderRow = await one(
+      'INSERT INTO folders (name, project, parent_folder_id, drive_folder_id) VALUES ($1, $2, $3, $4) RETURNING *',
+      [driveFolder.name, '', parentDbFolderId, driveFolder.id]
+    );
+    stats.foldersImported++;
+  }
+  // absorb any files left over from the old text-tag sync into this real folder
+  await query(
+    'UPDATE files SET project = $1, folder_id = $2 WHERE project = $3 AND folder_id IS NULL',
+    ['', folderRow.id, driveFolder.name]
+  );
+
+  const driveFiles = await googleDrive.listChildFiles(driveFolder.id);
+  for (const file of driveFiles) {
+    if (knownFileIds.has(file.id)) continue;
+    await query(
+      'INSERT INTO files (original_name, stored_name, mime_type, size, project, uploaded_by, drive_file_id, drive_link, folder_id) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)',
+      [file.name, '', file.mimeType || '', Number(file.size) || 0, '', '', file.id, file.webViewLink || '', folderRow.id]
+    );
+    knownFileIds.add(file.id);
+    stats.filesImported++;
+  }
+
+  const subfolders = await googleDrive.listChildFolders(driveFolder.id);
+  for (const sub of subfolders) {
+    await syncBrowseFolder(sub, folderRow.id, knownFileIds, stats);
+  }
+}
+
 app.post('/api/drive/sync', async (req, res) => {
   if (!googleDrive.isAuthorized()) {
     return res.status(503).json({ error: 'Google Drive is not connected. Visit /auth/google to connect it.' });
@@ -210,41 +242,41 @@ app.post('/api/drive/sync', async (req, res) => {
     const driveFolders = await googleDrive.listChildFolders(rootId);
 
     const existingProjects = await query('SELECT * FROM projects');
-    const byFolderId = new Map(existingProjects.filter(p => p.drive_folder_id).map(p => [p.drive_folder_id, p]));
-    const byName = new Map(existingProjects.map(p => [p.name, p]));
-
-    let projectsLinked = 0;
-    let filesImported = 0;
-
-    // Link folders to existing projects with a matching name, but never
-    // auto-create new projects — this root is for browsing Drive files only.
-    for (const folder of driveFolders) {
-      if (byFolderId.has(folder.id)) continue;
-      const existingByName = byName.get(folder.name);
-      if (existingByName && !existingByName.drive_folder_id) {
-        await query('UPDATE projects SET drive_folder_id = $1 WHERE id = $2', [folder.id, existingByName.id]);
-        byFolderId.set(folder.id, { ...existingByName, drive_folder_id: folder.id });
-        projectsLinked++;
-      }
-    }
+    const byProjectName = new Map(existingProjects.map(p => [p.name, p]));
 
     const existingFiles = await query('SELECT drive_file_id FROM files WHERE drive_file_id IS NOT NULL AND drive_file_id != $1', ['']);
     const knownFileIds = new Set(existingFiles.map(f => f.drive_file_id));
 
+    const stats = { projectsLinked: 0, foldersImported: 0, filesImported: 0 };
+
+    // Link folders to existing projects with a matching name (never auto-create
+    // new projects). Everything else mirrors recursively into real, browsable
+    // folders — even if empty — so Drive Files reflects the actual folder tree.
     for (const folder of driveFolders) {
-      const driveFiles = await googleDrive.listChildFiles(folder.id);
-      for (const file of driveFiles) {
-        if (knownFileIds.has(file.id)) continue;
-        await query(
-          'INSERT INTO files (original_name, stored_name, mime_type, size, project, uploaded_by, drive_file_id, drive_link) VALUES ($1, $2, $3, $4, $5, $6, $7, $8)',
-          [file.name, '', file.mimeType || '', Number(file.size) || 0, folder.name, '', file.id, file.webViewLink || '']
-        );
-        knownFileIds.add(file.id);
-        filesImported++;
+      const project = byProjectName.get(folder.name);
+      if (project) {
+        if (!project.drive_folder_id) {
+          await query('UPDATE projects SET drive_folder_id = $1 WHERE id = $2', [folder.id, project.id]);
+          project.drive_folder_id = folder.id;
+          stats.projectsLinked++;
+        }
+        const driveFiles = await googleDrive.listChildFiles(folder.id);
+        for (const file of driveFiles) {
+          if (knownFileIds.has(file.id)) continue;
+          await query(
+            'INSERT INTO files (original_name, stored_name, mime_type, size, project, uploaded_by, drive_file_id, drive_link) VALUES ($1, $2, $3, $4, $5, $6, $7, $8)',
+            [file.name, '', file.mimeType || '', Number(file.size) || 0, project.name, '', file.id, file.webViewLink || '']
+          );
+          knownFileIds.add(file.id);
+          stats.filesImported++;
+        }
+        continue;
       }
+
+      await syncBrowseFolder(folder, null, knownFileIds, stats);
     }
 
-    res.json({ projectsLinked, filesImported });
+    res.json(stats);
   } catch (err) {
     res.status(500).json({ error: 'Failed to sync from Drive: ' + err.message });
   }
