@@ -468,7 +468,12 @@ export default function DriveFiles() {
       {viewMode === 'grid' && !loading && (searching || openFolder !== null || inRealFolder) && filtered.length > 0 && (
         <div className="files-grid">
           {filtered.map(f => (
-            <div key={f.id} className="file-card-full">
+            <div
+              key={f.id}
+              className="file-card-full"
+              onClick={() => window.open(f.drive_link || apiUrl(`/api/files/${f.id}/download`), '_blank', 'noopener,noreferrer')}
+              style={{cursor: 'pointer'}}
+            >
               <div className="file-card-icon">{fileIcon(f.mime_type)}</div>
               <div className="file-card-body">
                 <span className="file-name">{f.original_name}</span>
@@ -481,8 +486,8 @@ export default function DriveFiles() {
                 <span>{f.uploaded_by || '—'}</span>
                 <span>{formatSize(f.size)}</span>
                 <div className="file-card-actions">
-                  <a href={apiUrl(`/api/files/${f.id}/download`)} className="action-btn-link" title="Download">⬇</a>
-                  <button className="action-btn delete" onClick={() => deleteFile(f.id)} title="Delete">✕</button>
+                  <a href={apiUrl(`/api/files/${f.id}/download`)} className="action-btn-link" title="Download" onClick={e => e.stopPropagation()}>⬇</a>
+                  <button className="action-btn delete" onClick={e => { e.stopPropagation(); deleteFile(f.id); }} title="Delete">✕</button>
                 </div>
               </div>
             </div>
@@ -502,7 +507,12 @@ export default function DriveFiles() {
             <span></span>
           </div>
           {filtered.map(f => (
-            <div key={f.id} className="file-list-row">
+            <div
+              key={f.id}
+              className="file-list-row"
+              onClick={() => window.open(f.drive_link || apiUrl(`/api/files/${f.id}/download`), '_blank', 'noopener,noreferrer')}
+              style={{cursor: 'pointer'}}
+            >
               <span className="file-row-name">
                 <span className="file-row-icon">{fileIcon(f.mime_type)}</span>
                 {f.original_name}
@@ -513,8 +523,8 @@ export default function DriveFiles() {
               <span className="cell-muted">{formatSize(f.size)}</span>
               <span className="cell-muted">{timeAgo(f.created_at)}</span>
               <div className="row-actions">
-                <a href={`/api/files/${f.id}/download`} className="action-btn-link" title="Download">⬇</a>
-                <button className="action-btn delete" onClick={() => deleteFile(f.id)} title="Delete">✕</button>
+                <a href={apiUrl(`/api/files/${f.id}/download`)} className="action-btn-link" title="Download" onClick={e => e.stopPropagation()}>⬇</a>
+                <button className="action-btn delete" onClick={e => { e.stopPropagation(); deleteFile(f.id); }} title="Delete">✕</button>
               </div>
             </div>
           ))}
