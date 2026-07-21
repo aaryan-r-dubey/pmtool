@@ -282,6 +282,53 @@ app.post('/api/drive/sync', async (req, res) => {
   }
 });
 
+async function syncProjectFolder(driveFolderId, projectName, parentDbFolderId, knownFileIds, stats) {
+  const driveFiles = await googleDrive.listChildFiles(driveFolderId);
+  for (const file of driveFiles) {
+    if (knownFileIds.has(file.id)) continue;
+    await query(
+      'INSERT INTO files (original_name, stored_name, mime_type, size, project, uploaded_by, drive_file_id, drive_link, folder_id) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)',
+      [file.name, '', file.mimeType || '', Number(file.size) || 0, projectName, '', file.id, file.webViewLink || '', parentDbFolderId]
+    );
+    knownFileIds.add(file.id);
+    stats.filesImported++;
+  }
+
+  const subfolders = await googleDrive.listChildFolders(driveFolderId);
+  for (const sub of subfolders) {
+    let folderRow = await one('SELECT * FROM folders WHERE drive_folder_id = $1', [sub.id]);
+    if (!folderRow) {
+      folderRow = await one(
+        'INSERT INTO folders (name, project, parent_folder_id, drive_folder_id) VALUES ($1, $2, $3, $4) RETURNING *',
+        [sub.name, projectName, parentDbFolderId, sub.id]
+      );
+      stats.foldersImported++;
+    }
+    await syncProjectFolder(sub.id, projectName, folderRow.id, knownFileIds, stats);
+  }
+}
+
+app.post('/api/projects/sync', async (req, res) => {
+  if (!googleDrive.isAuthorized()) {
+    return res.status(503).json({ error: 'Google Drive is not connected. Visit /auth/google to connect it.' });
+  }
+  try {
+    const projects = await query("SELECT * FROM projects WHERE drive_folder_id IS NOT NULL AND drive_folder_id != ''");
+
+    const existingFiles = await query('SELECT drive_file_id FROM files WHERE drive_file_id IS NOT NULL AND drive_file_id != $1', ['']);
+    const knownFileIds = new Set(existingFiles.map(f => f.drive_file_id));
+
+    const stats = { filesImported: 0, foldersImported: 0 };
+    for (const project of projects) {
+      await syncProjectFolder(project.drive_folder_id, project.name, null, knownFileIds, stats);
+    }
+
+    res.json(stats);
+  } catch (err) {
+    res.status(500).json({ error: 'Failed to sync projects from Drive: ' + err.message });
+  }
+});
+
 // Folders
 app.get('/api/folders', async (req, res) => {
   const { project = '', parent } = req.query;

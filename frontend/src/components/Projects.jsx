@@ -14,6 +14,7 @@ export default function Projects() {
   const [form, setForm] = useState(EMPTY_FORM);
   const [saving, setSaving] = useState(false);
   const [selected, setSelected] = useState(null);
+  const [syncing, setSyncing] = useState(false);
 
   useEffect(() => { fetchProjects(); }, []);
 
@@ -50,6 +51,19 @@ export default function Projects() {
     setProjects(prev => prev.filter(p => p.id !== id));
   }
 
+  async function syncFromDrive() {
+    setSyncing(true);
+    try {
+      const res = await fetch(apiUrl('/api/projects/sync'), { method: 'POST' });
+      const body = await res.json();
+      if (!res.ok) throw new Error(body.error || 'Sync failed.');
+      alert(`Synced from Drive: ${body.filesImported} file(s) imported, ${body.foldersImported} folder(s) imported.`);
+    } catch (err) {
+      alert(err.message || 'Sync failed.');
+    }
+    setSyncing(false);
+  }
+
   if (selected) {
     return (
       <ProjectDetail
@@ -67,9 +81,14 @@ export default function Projects() {
           <h1>Projects</h1>
           <p className="page-sub">{projects.length} project{projects.length !== 1 ? 's' : ''}</p>
         </div>
-        <button className="btn-primary" onClick={() => { setShowForm(v => !v); setForm(EMPTY_FORM); }}>
-          {showForm ? 'Cancel' : '+ New Project'}
-        </button>
+        <div style={{display:'flex', gap:8}}>
+          <button className="filter-btn" onClick={syncFromDrive} disabled={syncing}>
+            {syncing ? 'Syncing...' : '⟳ Sync from Drive'}
+          </button>
+          <button className="btn-primary" onClick={() => { setShowForm(v => !v); setForm(EMPTY_FORM); }}>
+            {showForm ? 'Cancel' : '+ New Project'}
+          </button>
+        </div>
       </div>
 
       {showForm && (

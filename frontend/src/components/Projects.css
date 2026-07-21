@@ -20,6 +20,19 @@
 .btn-primary:hover { opacity: .9; }
 .btn-primary:disabled { opacity: .6; }
 
+.filter-btn {
+  padding: 9px 14px;
+  border: 1px solid var(--border);
+  background: var(--surface);
+  border-radius: 8px;
+  color: var(--text-muted);
+  font-weight: 500;
+  font-size: 13px;
+  cursor: pointer;
+}
+.filter-btn:hover:not(:disabled) { background: var(--bg); color: var(--text); }
+.filter-btn:disabled { opacity: .6; cursor: default; }
+
 .project-form.card {
   background: var(--surface);
   border: 1px solid var(--border);
