@@ -54,10 +54,22 @@ export default function Projects() {
   async function syncFromDrive() {
     setSyncing(true);
     try {
-      const res = await fetch(apiUrl('/api/projects/sync'), { method: 'POST' });
-      const body = await res.json();
-      if (!res.ok) throw new Error(body.error || 'Sync failed.');
-      alert(`Synced from Drive: ${body.filesImported} file(s) imported, ${body.foldersImported} folder(s) imported.`);
+      // Discover/promote new projects from the staging folder and link any
+      // name matches under the Files root, then pull new files into every
+      // existing project's own Drive folder (wherever it actually lives).
+      const driveRes = await fetch(apiUrl('/api/drive/sync'), { method: 'POST' });
+      const driveBody = await driveRes.json();
+      if (!driveRes.ok) throw new Error(driveBody.error || 'Sync failed.');
+
+      const projRes = await fetch(apiUrl('/api/projects/sync'), { method: 'POST' });
+      const projBody = await projRes.json();
+      if (!projRes.ok) throw new Error(projBody.error || 'Sync failed.');
+
+      await fetchProjects();
+
+      const filesImported = driveBody.filesImported + projBody.filesImported;
+      const foldersImported = driveBody.foldersImported + projBody.foldersImported;
+      alert(`Synced from Drive: ${driveBody.projectsCreated} project(s) created, ${filesImported} file(s) imported, ${foldersImported} folder(s) imported.`);
     } catch (err) {
       alert(err.message || 'Sync failed.');
     }

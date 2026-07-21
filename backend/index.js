@@ -233,6 +233,31 @@ async function syncBrowseFolder(driveFolder, parentDbFolderId, knownFileIds, sta
   }
 }
 
+async function collectFolderSubtreeIds(rootId) {
+  const ids = [rootId];
+  const children = await query('SELECT id FROM folders WHERE parent_folder_id = $1', [rootId]);
+  for (const child of children) {
+    ids.push(...(await collectFolderSubtreeIds(child.id)));
+  }
+  return ids;
+}
+
+// If this Drive folder was already mirrored as a plain browse folder (from
+// before it became a project), absorb that folder/file tree into the project
+// instead of leaving a stale duplicate behind in Drive Files.
+async function promoteBrowseFolderToProject(driveFolderId, projectName) {
+  const folderRow = await one('SELECT * FROM folders WHERE drive_folder_id = $1', [driveFolderId]);
+  if (!folderRow) return;
+
+  const subtreeIds = await collectFolderSubtreeIds(folderRow.id);
+  await query('UPDATE folders SET project = $1 WHERE id = ANY($2::int[])', [projectName, subtreeIds]);
+  await query('UPDATE files SET project = $1 WHERE folder_id = ANY($2::int[])', [projectName, subtreeIds]);
+
+  await query('UPDATE folders SET parent_folder_id = NULL WHERE parent_folder_id = $1', [folderRow.id]);
+  await query('UPDATE files SET folder_id = NULL WHERE folder_id = $1', [folderRow.id]);
+  await query('DELETE FROM folders WHERE id = $1', [folderRow.id]);
+}
+
 const PROJECT_STAGING_FOLDER_NAME = (process.env.GOOGLE_DRIVE_PROJECT_STAGING_FOLDER_NAME || 'startup applications').trim().toLowerCase();
 
 app.post('/api/drive/sync', async (req, res) => {
@@ -293,6 +318,7 @@ app.post('/api/drive/sync', async (req, res) => {
             subProject.drive_folder_id = sub.id;
             stats.projectsLinked++;
           }
+          await promoteBrowseFolderToProject(sub.id, subProject.name);
           await syncProjectFolder(sub.id, subProject.name, null, knownFileIds, stats);
         }
         continue;
