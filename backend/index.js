@@ -233,6 +233,8 @@ async function syncBrowseFolder(driveFolder, parentDbFolderId, knownFileIds, sta
   }
 }
 
+const PROJECT_STAGING_FOLDER_NAME = (process.env.GOOGLE_DRIVE_PROJECT_STAGING_FOLDER_NAME || 'startup applications').trim().toLowerCase();
+
 app.post('/api/drive/sync', async (req, res) => {
   if (!googleDrive.isAuthorized()) {
     return res.status(503).json({ error: 'Google Drive is not connected. Visit /auth/google to connect it.' });
@@ -247,11 +249,13 @@ app.post('/api/drive/sync', async (req, res) => {
     const existingFiles = await query('SELECT drive_file_id FROM files WHERE drive_file_id IS NOT NULL AND drive_file_id != $1', ['']);
     const knownFileIds = new Set(existingFiles.map(f => f.drive_file_id));
 
-    const stats = { projectsLinked: 0, foldersImported: 0, filesImported: 0 };
+    const stats = { projectsLinked: 0, projectsCreated: 0, foldersImported: 0, filesImported: 0 };
 
     // Link folders to existing projects with a matching name (never auto-create
-    // new projects). Everything else mirrors recursively into real, browsable
-    // folders — even if empty — so Drive Files reflects the actual folder tree.
+    // new projects this way). The one exception is PROJECT_STAGING_FOLDER_NAME —
+    // its direct subfolders are treated as projects and created if missing.
+    // Everything else mirrors recursively into real, browsable folders — even if
+    // empty — so Drive Files reflects the actual folder tree.
     for (const folder of driveFolders) {
       const project = byProjectName.get(folder.name);
       if (project) {
@@ -269,6 +273,27 @@ app.post('/api/drive/sync', async (req, res) => {
           );
           knownFileIds.add(file.id);
           stats.filesImported++;
+        }
+        continue;
+      }
+
+      if (folder.name.trim().toLowerCase() === PROJECT_STAGING_FOLDER_NAME) {
+        const staged = await googleDrive.listChildFolders(folder.id);
+        for (const sub of staged) {
+          let subProject = byProjectName.get(sub.name);
+          if (!subProject) {
+            subProject = await one(
+              'INSERT INTO projects (name, status, drive_folder_id) VALUES ($1, $2, $3) RETURNING *',
+              [sub.name, 'active', sub.id]
+            );
+            byProjectName.set(subProject.name, subProject);
+            stats.projectsCreated++;
+          } else if (!subProject.drive_folder_id) {
+            await query('UPDATE projects SET drive_folder_id = $1 WHERE id = $2', [sub.id, subProject.id]);
+            subProject.drive_folder_id = sub.id;
+            stats.projectsLinked++;
+          }
+          await syncProjectFolder(sub.id, subProject.name, null, knownFileIds, stats);
         }
         continue;
       }
