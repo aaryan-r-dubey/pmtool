@@ -233,8 +233,6 @@ async function syncBrowseFolder(driveFolder, parentDbFolderId, knownFileIds, sta
   }
 }
 
-const PROJECT_STAGING_FOLDER_NAME = process.env.GOOGLE_DRIVE_PROJECT_STAGING_FOLDER_NAME || 'startup applications';
-
 // Drive Files sync is a pure mirror: every folder/file under the Files root
 // becomes a browsable folders/files row. It never creates, links, or touches
 // Projects — that keeps arbitrary Drive folders from ever leaking into a
@@ -261,9 +259,9 @@ app.post('/api/drive/sync', async (req, res) => {
   }
 });
 
-// Discovers new projects from the staging folder living under the Projects
-// root (separate from the Files root, so it never mixes with Drive Files
-// browsing). Each direct subfolder of the staging folder becomes a project,
+// Discovers new projects directly under the Projects root (a folder kept
+// entirely separate from the Files root, so it never mixes with Drive Files
+// browsing). Each direct subfolder of the Projects root becomes a project,
 // matched to an existing one by drive_folder_id first, then by name.
 app.post('/api/projects/sync-staging', async (req, res) => {
   if (!googleDrive.isAuthorized()) {
@@ -271,17 +269,12 @@ app.post('/api/projects/sync-staging', async (req, res) => {
   }
   try {
     const projectsRootId = await googleDrive.getProjectsRoot();
-    const stagingFolderId = await googleDrive.findChildFolderByName(projectsRootId, PROJECT_STAGING_FOLDER_NAME);
-
     const stats = { projectsCreated: 0, projectsLinked: 0, foldersImported: 0, filesImported: 0 };
-    if (!stagingFolderId) {
-      return res.json(stats);
-    }
 
     const existingFiles = await query('SELECT drive_file_id FROM files WHERE drive_file_id IS NOT NULL AND drive_file_id != $1', ['']);
     const knownFileIds = new Set(existingFiles.map(f => f.drive_file_id));
 
-    const staged = await googleDrive.listChildFolders(stagingFolderId);
+    const staged = await googleDrive.listChildFolders(projectsRootId);
     for (const sub of staged) {
       let project = await one('SELECT * FROM projects WHERE drive_folder_id = $1', [sub.id]);
       if (!project) {
