@@ -190,7 +190,7 @@ export default function DriveFiles() {
       await fetchFiles();
       await fetchRealFolders(currentFolderId);
       if (currentFolderId) await fetchFolderFiles(currentFolderId);
-      alert(`Synced from Drive: ${body.filesImported} file(s) imported, ${body.foldersImported} folder(s) imported, ${body.projectsCreated} project(s) created, ${body.projectsLinked} project(s) linked.`);
+      alert(`Synced from Drive: ${body.filesImported} file(s) imported, ${body.foldersImported} folder(s) imported.`);
     } catch (err) {
       alert(err.message || 'Sync failed.');
     }

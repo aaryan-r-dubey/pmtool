@@ -233,33 +233,12 @@ async function syncBrowseFolder(driveFolder, parentDbFolderId, knownFileIds, sta
   }
 }
 
-async function collectFolderSubtreeIds(rootId) {
-  const ids = [rootId];
-  const children = await query('SELECT id FROM folders WHERE parent_folder_id = $1', [rootId]);
-  for (const child of children) {
-    ids.push(...(await collectFolderSubtreeIds(child.id)));
-  }
-  return ids;
-}
+const PROJECT_STAGING_FOLDER_NAME = process.env.GOOGLE_DRIVE_PROJECT_STAGING_FOLDER_NAME || 'startup applications';
 
-// If this Drive folder was already mirrored as a plain browse folder (from
-// before it became a project), absorb that folder/file tree into the project
-// instead of leaving a stale duplicate behind in Drive Files.
-async function promoteBrowseFolderToProject(driveFolderId, projectName) {
-  const folderRow = await one('SELECT * FROM folders WHERE drive_folder_id = $1', [driveFolderId]);
-  if (!folderRow) return;
-
-  const subtreeIds = await collectFolderSubtreeIds(folderRow.id);
-  await query('UPDATE folders SET project = $1 WHERE id = ANY($2::int[])', [projectName, subtreeIds]);
-  await query('UPDATE files SET project = $1 WHERE folder_id = ANY($2::int[])', [projectName, subtreeIds]);
-
-  await query('UPDATE folders SET parent_folder_id = NULL WHERE parent_folder_id = $1', [folderRow.id]);
-  await query('UPDATE files SET folder_id = NULL WHERE folder_id = $1', [folderRow.id]);
-  await query('DELETE FROM folders WHERE id = $1', [folderRow.id]);
-}
-
-const PROJECT_STAGING_FOLDER_NAME = (process.env.GOOGLE_DRIVE_PROJECT_STAGING_FOLDER_NAME || 'startup applications').trim().toLowerCase();
-
+// Drive Files sync is a pure mirror: every folder/file under the Files root
+// becomes a browsable folders/files row. It never creates, links, or touches
+// Projects — that keeps arbitrary Drive folders from ever leaking into a
+// project's file list just because they happen to share its name.
 app.post('/api/drive/sync', async (req, res) => {
   if (!googleDrive.isAuthorized()) {
     return res.status(503).json({ error: 'Google Drive is not connected. Visit /auth/google to connect it.' });
@@ -268,68 +247,65 @@ app.post('/api/drive/sync', async (req, res) => {
     const rootId = await googleDrive.getFilesRoot();
     const driveFolders = await googleDrive.listChildFolders(rootId);
 
-    const existingProjects = await query('SELECT * FROM projects');
-    const byProjectName = new Map(existingProjects.map(p => [p.name, p]));
-
     const existingFiles = await query('SELECT drive_file_id FROM files WHERE drive_file_id IS NOT NULL AND drive_file_id != $1', ['']);
     const knownFileIds = new Set(existingFiles.map(f => f.drive_file_id));
 
-    const stats = { projectsLinked: 0, projectsCreated: 0, foldersImported: 0, filesImported: 0 };
-
-    // Link folders to existing projects with a matching name (never auto-create
-    // new projects this way). The one exception is PROJECT_STAGING_FOLDER_NAME —
-    // its direct subfolders are treated as projects and created if missing.
-    // Everything else mirrors recursively into real, browsable folders — even if
-    // empty — so Drive Files reflects the actual folder tree.
+    const stats = { foldersImported: 0, filesImported: 0 };
     for (const folder of driveFolders) {
-      const project = byProjectName.get(folder.name);
-      if (project) {
-        if (!project.drive_folder_id) {
-          await query('UPDATE projects SET drive_folder_id = $1 WHERE id = $2', [folder.id, project.id]);
-          project.drive_folder_id = folder.id;
-          stats.projectsLinked++;
-        }
-        const driveFiles = await googleDrive.listChildFiles(folder.id);
-        for (const file of driveFiles) {
-          if (knownFileIds.has(file.id)) continue;
-          await query(
-            'INSERT INTO files (original_name, stored_name, mime_type, size, project, uploaded_by, drive_file_id, drive_link) VALUES ($1, $2, $3, $4, $5, $6, $7, $8)',
-            [file.name, '', file.mimeType || '', Number(file.size) || 0, project.name, '', file.id, file.webViewLink || '']
-          );
-          knownFileIds.add(file.id);
-          stats.filesImported++;
-        }
-        continue;
-      }
-
-      if (folder.name.trim().toLowerCase() === PROJECT_STAGING_FOLDER_NAME) {
-        const staged = await googleDrive.listChildFolders(folder.id);
-        for (const sub of staged) {
-          let subProject = byProjectName.get(sub.name);
-          if (!subProject) {
-            subProject = await one(
-              'INSERT INTO projects (name, status, drive_folder_id) VALUES ($1, $2, $3) RETURNING *',
-              [sub.name, 'active', sub.id]
-            );
-            byProjectName.set(subProject.name, subProject);
-            stats.projectsCreated++;
-          } else if (!subProject.drive_folder_id) {
-            await query('UPDATE projects SET drive_folder_id = $1 WHERE id = $2', [sub.id, subProject.id]);
-            subProject.drive_folder_id = sub.id;
-            stats.projectsLinked++;
-          }
-          await promoteBrowseFolderToProject(sub.id, subProject.name);
-          await syncProjectFolder(sub.id, subProject.name, null, knownFileIds, stats);
-        }
-        continue;
-      }
-
       await syncBrowseFolder(folder, null, knownFileIds, stats);
     }
 
     res.json(stats);
   } catch (err) {
     res.status(500).json({ error: 'Failed to sync from Drive: ' + err.message });
+  }
+});
+
+// Discovers new projects from the staging folder living under the Projects
+// root (separate from the Files root, so it never mixes with Drive Files
+// browsing). Each direct subfolder of the staging folder becomes a project,
+// matched to an existing one by drive_folder_id first, then by name.
+app.post('/api/projects/sync-staging', async (req, res) => {
+  if (!googleDrive.isAuthorized()) {
+    return res.status(503).json({ error: 'Google Drive is not connected. Visit /auth/google to connect it.' });
+  }
+  try {
+    const projectsRootId = await googleDrive.getProjectsRoot();
+    const stagingFolderId = await googleDrive.findChildFolderByName(projectsRootId, PROJECT_STAGING_FOLDER_NAME);
+
+    const stats = { projectsCreated: 0, projectsLinked: 0, foldersImported: 0, filesImported: 0 };
+    if (!stagingFolderId) {
+      return res.json(stats);
+    }
+
+    const existingFiles = await query('SELECT drive_file_id FROM files WHERE drive_file_id IS NOT NULL AND drive_file_id != $1', ['']);
+    const knownFileIds = new Set(existingFiles.map(f => f.drive_file_id));
+
+    const staged = await googleDrive.listChildFolders(stagingFolderId);
+    for (const sub of staged) {
+      let project = await one('SELECT * FROM projects WHERE drive_folder_id = $1', [sub.id]);
+      if (!project) {
+        project = await one('SELECT * FROM projects WHERE name = $1', [sub.name]);
+        if (project) {
+          if (!project.drive_folder_id) {
+            await query('UPDATE projects SET drive_folder_id = $1 WHERE id = $2', [sub.id, project.id]);
+            project.drive_folder_id = sub.id;
+            stats.projectsLinked++;
+          }
+        } else {
+          project = await one(
+            'INSERT INTO projects (name, status, drive_folder_id) VALUES ($1, $2, $3) RETURNING *',
+            [sub.name, 'active', sub.id]
+          );
+          stats.projectsCreated++;
+        }
+      }
+      await syncProjectFolder(sub.id, project.name, null, knownFileIds, stats);
+    }
+
+    res.json(stats);
+  } catch (err) {
+    res.status(500).json({ error: 'Failed to sync staged applications from Drive: ' + err.message });
   }
 });
 

@@ -160,3 +160,11 @@ export async function listChildFiles(parentId) {
 export async function getFilesRoot() {
   return FILES_ROOT_ID;
 }
+
+export async function getProjectsRoot() {
+  return PROJECTS_ROOT_ID;
+}
+
+export async function findChildFolderByName(parentId, name) {
+  return findFolder(name, parentId);
+}

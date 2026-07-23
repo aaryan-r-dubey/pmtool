@@ -54,12 +54,12 @@ export default function Projects() {
   async function syncFromDrive() {
     setSyncing(true);
     try {
-      // Discover/promote new projects from the staging folder and link any
-      // name matches under the Files root, then pull new files into every
-      // existing project's own Drive folder (wherever it actually lives).
-      const driveRes = await fetch(apiUrl('/api/drive/sync'), { method: 'POST' });
-      const driveBody = await driveRes.json();
-      if (!driveRes.ok) throw new Error(driveBody.error || 'Sync failed.');
+      // Discover/create projects from the staging folder under the Projects
+      // root, then pull new files into every existing project's own Drive
+      // folder (wherever it actually lives). Never touches Drive Files.
+      const stagingRes = await fetch(apiUrl('/api/projects/sync-staging'), { method: 'POST' });
+      const stagingBody = await stagingRes.json();
+      if (!stagingRes.ok) throw new Error(stagingBody.error || 'Sync failed.');
 
       const projRes = await fetch(apiUrl('/api/projects/sync'), { method: 'POST' });
       const projBody = await projRes.json();
@@ -67,9 +67,9 @@ export default function Projects() {
 
       await fetchProjects();
 
-      const filesImported = driveBody.filesImported + projBody.filesImported;
-      const foldersImported = driveBody.foldersImported + projBody.foldersImported;
-      alert(`Synced from Drive: ${driveBody.projectsCreated} project(s) created, ${filesImported} file(s) imported, ${foldersImported} folder(s) imported.`);
+      const filesImported = stagingBody.filesImported + projBody.filesImported;
+      const foldersImported = stagingBody.foldersImported + projBody.foldersImported;
+      alert(`Synced from Drive: ${stagingBody.projectsCreated} project(s) created, ${filesImported} file(s) imported, ${foldersImported} folder(s) imported.`);
     } catch (err) {
       alert(err.message || 'Sync failed.');
     }
