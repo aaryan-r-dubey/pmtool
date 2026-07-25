@@ -241,10 +241,11 @@ export default function Contacts() {
                 </div>
               </div>
             ) : (
-              <div className="table-row">
+              <div className="table-row" title={c.notes || ''}>
                 <div className="contact-name-cell">
                   <span className="contact-name-text">{c.name}</span>
                   {c.role && <span className="contact-sub">{c.role}</span>}
+                  {c.notes && <span className="contact-notes-preview">{c.notes}</span>}
                 </div>
                 <span className="cell-muted">{c.startup || '—'}</span>
                 <span className="cell-muted">{c.email || '—'}</span>

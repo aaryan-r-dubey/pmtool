@@ -67,6 +67,14 @@
 .contact-name-cell { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
 .contact-name-text { font-size: 13px; font-weight: 500; color: var(--text); }
 .contact-sub { font-size: 11px; color: var(--text-muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.contact-notes-preview {
+  font-size: 11px;
+  color: var(--text-muted);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 100%;
+}
 
 .status-chip {
   font-size: 11px;
