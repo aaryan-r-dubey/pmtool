@@ -4,6 +4,7 @@ import cors from 'cors';
 import multer from 'multer';
 import { query, one } from './db.js';
 import * as googleDrive from './googleDrive.js';
+import * as googleCalendar from './googleCalendar.js';
 
 const upload = multer({ storage: multer.memoryStorage(), limits: { fileSize: 50 * 1024 * 1024 } });
 
@@ -199,6 +200,70 @@ app.get('/auth/google/callback', async (req, res) => {
 
 app.get('/api/drive/status', (req, res) => {
   res.json({ configured: googleDrive.isConfigured(), authorized: googleDrive.isAuthorized() });
+});
+
+// Google Calendar OAuth — separate connection from Drive, since it authorizes
+// a specific person's calendar rather than the shared Drive account.
+app.get('/auth/google-calendar', (req, res) => {
+  if (!googleCalendar.isConfigured()) return res.status(500).send('Google Calendar OAuth is not configured. Set GOOGLE_CLIENT_ID, GOOGLE_CLIENT_SECRET, GOOGLE_CALENDAR_REDIRECT_URI in backend/.env');
+  res.redirect(googleCalendar.getAuthUrl(req.query.name));
+});
+
+app.get('/auth/google-calendar/callback', async (req, res) => {
+  const { code, state } = req.query;
+  if (!code) return res.status(400).send('Missing code');
+  try {
+    await googleCalendar.handleOAuthCallback(code, state ? decodeURIComponent(state) : '');
+    res.send('Google Calendar connected. You can close this tab.');
+  } catch (err) {
+    res.status(500).send('Failed to connect Google Calendar: ' + err.message);
+  }
+});
+
+app.get('/api/calendar/status', async (req, res) => {
+  const configured = googleCalendar.isConfigured();
+  const authorized = await googleCalendar.isAuthorized();
+  const connection = authorized ? await googleCalendar.getConnectionInfo() : null;
+  res.json({ configured, authorized, connection });
+});
+
+app.get('/api/calendar/events', async (req, res) => {
+  try {
+    const { timeMin, timeMax } = req.query;
+    const events = await googleCalendar.listEvents({ timeMin, timeMax });
+    res.json(events);
+  } catch (err) {
+    res.status(503).json({ error: err.message });
+  }
+});
+
+app.post('/api/calendar/events', async (req, res) => {
+  const { title } = req.body;
+  if (!title?.trim()) return res.status(400).json({ error: 'Title is required' });
+  try {
+    const event = await googleCalendar.createEvent(req.body);
+    res.status(201).json(event);
+  } catch (err) {
+    res.status(503).json({ error: err.message });
+  }
+});
+
+app.patch('/api/calendar/events/:id', async (req, res) => {
+  try {
+    const event = await googleCalendar.updateEvent(req.params.id, req.body);
+    res.json(event);
+  } catch (err) {
+    res.status(503).json({ error: err.message });
+  }
+});
+
+app.delete('/api/calendar/events/:id', async (req, res) => {
+  try {
+    await googleCalendar.deleteEvent(req.params.id);
+    res.json({ success: true });
+  } catch (err) {
+    res.status(503).json({ error: err.message });
+  }
 });
 
 async function syncBrowseFolder(driveFolder, parentDbFolderId, knownFileIds, stats) {

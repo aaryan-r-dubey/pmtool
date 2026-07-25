@@ -80,6 +80,16 @@ await pool.query(`
   )
 `);
 
+await pool.query(`
+  CREATE TABLE IF NOT EXISTS calendar_connections (
+    id SERIAL PRIMARY KEY,
+    owner_name TEXT NOT NULL DEFAULT '',
+    calendar_id TEXT NOT NULL DEFAULT 'primary',
+    refresh_token TEXT NOT NULL,
+    created_at TIMESTAMPTZ DEFAULT now()
+  )
+`);
+
 export async function query(text, params) {
   const res = await pool.query(text, params);
   return res.rows;
