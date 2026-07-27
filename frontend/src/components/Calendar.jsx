@@ -25,6 +25,7 @@ export default function Calendar() {
   const [form, setForm] = useState(EMPTY_FORM);
   const [editingId, setEditingId] = useState(null);
   const [saving, setSaving] = useState(false);
+  const [dayModal, setDayModal] = useState(null);
 
   useEffect(() => {
     fetch(apiUrl('/api/calendar/status')).then(r => r.json()).then(setCalStatus).catch(() => {});
@@ -202,7 +203,14 @@ export default function Calendar() {
                         {e.title}
                       </div>
                     ))}
-                    {dayEvents.length > 2 && <div className="more-chip">+{dayEvents.length - 2} more</div>}
+                    {dayEvents.length > 2 && (
+                      <div
+                        className="more-chip"
+                        onClick={ev => { ev.stopPropagation(); setDayModal({ dateStr, events: dayEvents }); }}
+                      >
+                        +{dayEvents.length - 2} more
+                      </div>
+                    )}
                   </div>
                 );
               })}
@@ -234,6 +242,33 @@ export default function Calendar() {
           </div>
         </aside>
       </div>
+
+      {dayModal && (
+        <div className="day-modal-backdrop" onClick={() => setDayModal(null)}>
+          <div className="day-modal card" onClick={ev => ev.stopPropagation()}>
+            <div className="card-header">
+              <h2>{new Date(dayModal.dateStr + 'T00:00:00').toLocaleDateString('en-US', { weekday: 'long', month: 'short', day: 'numeric' })}</h2>
+              <button className="action-btn" onClick={() => setDayModal(null)}>Close</button>
+            </div>
+            <ul className="event-list-full">
+              {dayModal.events.map(e => (
+                <li
+                  key={e.id}
+                  className="event-item-full"
+                  style={{ cursor: 'pointer' }}
+                  onClick={() => { setDayModal(null); openEditForm(e); }}
+                >
+                  <div className={`event-dot ${e.recurring ? 'recurring' : 'meeting'}`} />
+                  <div>
+                    <span className="event-name">{e.title}</span>
+                    <span className="event-when">{e.allDay ? 'All day' : e.time}</span>
+                  </div>
+                </li>
+              ))}
+            </ul>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

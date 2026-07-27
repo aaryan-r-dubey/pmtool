@@ -171,7 +171,29 @@
 .cal-event-chip.meeting { background: var(--accent-light); color: var(--accent); }
 .cal-event-chip.recurring { background: #e0eeeb; color: var(--success); }
 
-.more-chip { font-size: 9px; color: var(--text-muted); }
+.more-chip { font-size: 9px; color: var(--text-muted); cursor: pointer; text-decoration: underline; }
+.more-chip:hover { color: var(--accent); }
+
+.day-modal-backdrop {
+  position: fixed;
+  inset: 0;
+  background: rgba(0,0,0,.35);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 50;
+}
+
+.day-modal.card {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 16px;
+  box-shadow: var(--shadow);
+  width: 320px;
+  max-height: 70vh;
+  overflow-y: auto;
+}
 
 /* sidebar */
 .cal-sidebar .card {
