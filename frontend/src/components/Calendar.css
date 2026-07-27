@@ -146,14 +146,14 @@
   min-height: 72px;
   padding: 6px;
   border-radius: 8px;
-  border: 1px solid transparent;
-  background: var(--bg);
+  border: 1px solid var(--border);
+  background: var(--surface);
   display: flex;
   flex-direction: column;
   gap: 2px;
 }
 
-.cal-day:hover { border-color: var(--border); }
+.cal-day:hover { border-color: var(--accent); }
 
 .cal-day.today { background: var(--accent-light); border-color: var(--accent); }
 .cal-day.today .day-num { color: var(--accent); font-weight: 700; }
@@ -167,9 +167,10 @@
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
+  font-weight: 500;
 }
-.cal-event-chip.meeting { background: var(--accent-light); color: var(--accent); }
-.cal-event-chip.recurring { background: #e0eeeb; color: var(--success); }
+.cal-event-chip.meeting { background: var(--accent-light); color: var(--accent-text, var(--accent)); }
+.cal-event-chip.recurring { background: var(--success-light, #e0eeeb); color: var(--success); }
 
 .more-chip { font-size: 9px; color: var(--text-muted); cursor: pointer; text-decoration: underline; }
 .more-chip:hover { color: var(--accent); }
