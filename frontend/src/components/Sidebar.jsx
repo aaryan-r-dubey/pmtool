@@ -1,4 +1,5 @@
 import './Sidebar.css';
+import useTheme from '../useTheme';
 
 const nav = [
   { key: 'dashboard', label: 'Dashboard', icon: '⊞' },
@@ -11,6 +12,8 @@ const nav = [
 ];
 
 export default function Sidebar({ active, onNav }) {
+  const { theme, toggleTheme } = useTheme();
+
   return (
     <aside className="sidebar">
       <div className="sidebar-logo">
@@ -40,6 +43,14 @@ export default function Sidebar({ active, onNav }) {
           <span className="user-name">Your Team</span>
           <span className="user-role">Internal</span>
         </div>
+        <button
+          className="theme-toggle"
+          onClick={toggleTheme}
+          title={theme === 'dark' ? 'Switch to light mode' : 'Switch to dark mode'}
+          aria-label="Toggle dark mode"
+        >
+          {theme === 'dark' ? '☀' : '☾'}
+        </button>
       </div>
     </aside>
   );

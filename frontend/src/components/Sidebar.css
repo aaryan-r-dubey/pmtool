@@ -99,6 +99,23 @@
   flex-shrink: 0;
 }
 
-.sidebar-user { display: flex; flex-direction: column; }
+.sidebar-user { display: flex; flex-direction: column; flex: 1; min-width: 0; }
 .user-name { font-weight: 600; font-size: 13px; color: #fff; }
 .user-role { font-size: 11px; color: var(--sidebar-text); }
+
+.theme-toggle {
+  flex-shrink: 0;
+  width: 30px;
+  height: 30px;
+  border-radius: 8px;
+  border: 1px solid var(--sidebar-border);
+  background: var(--sidebar-hover-bg);
+  color: var(--sidebar-text-active);
+  font-size: 14px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: background .15s;
+}
+
+.theme-toggle:hover { background: var(--sidebar-active-bg); }
