@@ -10,6 +10,19 @@ function formatDate(dateStr) {
   return new Date(dateStr).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
 }
 
+const EXTRA_FIELDS = [
+  ['founders', 'Founders'],
+  ['decision', 'Decision'],
+  ['outreach_status', 'Meeting Status'],
+  ['stage', 'Stage'],
+  ['category', 'Category'],
+  ['industry', 'Industry'],
+  ['headquarters', 'Headquarters'],
+  ['website', 'Website'],
+  ['year_founded', 'Year Founded'],
+  ['next_meeting', 'Next Meeting'],
+];
+
 export default function ContactDetail({ contact: initial, onBack, onUpdate, onDelete }) {
   const [contact, setContact] = useState(initial);
   const [editing, setEditing] = useState(false);
@@ -23,8 +36,21 @@ export default function ContactDetail({ contact: initial, onBack, onUpdate, onDe
     connected_on: initial.connected_on || '',
     status: initial.status,
     notes: initial.notes || '',
+    founders: initial.founders || '',
+    decision: initial.decision || '',
+    outreach_status: initial.outreach_status || '',
+    stage: initial.stage || '',
+    category: initial.category || '',
+    industry: initial.industry || '',
+    headquarters: initial.headquarters || '',
+    website: initial.website || '',
+    year_founded: initial.year_founded || '',
+    next_meeting: initial.next_meeting || '',
+    insights: initial.insights || '',
   });
   const [saving, setSaving] = useState(false);
+
+  const hasExtraDetails = EXTRA_FIELDS.some(([key]) => contact[key]) || contact.insights;
 
   async function saveEdit(e) {
     e.preventDefault();
@@ -120,13 +146,34 @@ export default function ContactDetail({ contact: initial, onBack, onUpdate, onDe
               <input className="form-input" type="date" value={form.connected_on} onChange={e => setForm(f => ({ ...f, connected_on: e.target.value }))} />
             </label>
           </div>
+
+          <div className="edit-section-label">Startup details</div>
+          <div className="edit-grid">
+            {EXTRA_FIELDS.map(([key, label]) => (
+              <label key={key}>
+                <span>{label}</span>
+                <input className="form-input" value={form[key]} onChange={e => setForm(f => ({ ...f, [key]: e.target.value }))} placeholder={label} />
+              </label>
+            ))}
+          </div>
           <label className="desc-label">
-            <span>Notes</span>
+            <span>Insights</span>
+            <textarea
+              className="form-input form-textarea"
+              value={form.insights}
+              onChange={e => setForm(f => ({ ...f, insights: e.target.value }))}
+              rows={4}
+              placeholder="Strategic read / diligence notes..."
+            />
+          </label>
+
+          <label className="desc-label">
+            <span>Meeting Notes</span>
             <textarea
               className="form-input form-textarea"
               value={form.notes}
               onChange={e => setForm(f => ({ ...f, notes: e.target.value }))}
-              rows={8}
+              rows={6}
               placeholder="Notes..."
             />
           </label>
@@ -178,8 +225,29 @@ export default function ContactDetail({ contact: initial, onBack, onUpdate, onDe
             </div>
           </div>
 
+          {hasExtraDetails && (
+            <div className="detail-meta-grid">
+              {EXTRA_FIELDS.filter(([key]) => contact[key]).map(([key, label]) => (
+                <div className="meta-item" key={key}>
+                  <span className="meta-label">{label}</span>
+                  {key === 'website'
+                    ? <a className="meta-value link" href={contact.website.startsWith('http') ? contact.website : `https://${contact.website}`} target="_blank" rel="noopener noreferrer">{contact.website}</a>
+                    : <span className="meta-value">{contact[key]}</span>
+                  }
+                </div>
+              ))}
+            </div>
+          )}
+
+          {contact.insights && (
+            <div className="detail-description">
+              <span className="meta-label">Insights</span>
+              <p className="desc-text">{contact.insights}</p>
+            </div>
+          )}
+
           <div className="detail-description">
-            <span className="meta-label">Notes</span>
+            <span className="meta-label">Meeting Notes</span>
             {contact.notes
               ? <p className="desc-text">{contact.notes}</p>
               : <p className="desc-empty">No notes added.</p>

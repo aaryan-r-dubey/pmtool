@@ -80,6 +80,18 @@ await pool.query(`
   )
 `);
 
+await pool.query(`ALTER TABLE contacts ADD COLUMN IF NOT EXISTS founders TEXT DEFAULT ''`);
+await pool.query(`ALTER TABLE contacts ADD COLUMN IF NOT EXISTS decision TEXT DEFAULT ''`);
+await pool.query(`ALTER TABLE contacts ADD COLUMN IF NOT EXISTS outreach_status TEXT DEFAULT ''`);
+await pool.query(`ALTER TABLE contacts ADD COLUMN IF NOT EXISTS stage TEXT DEFAULT ''`);
+await pool.query(`ALTER TABLE contacts ADD COLUMN IF NOT EXISTS category TEXT DEFAULT ''`);
+await pool.query(`ALTER TABLE contacts ADD COLUMN IF NOT EXISTS industry TEXT DEFAULT ''`);
+await pool.query(`ALTER TABLE contacts ADD COLUMN IF NOT EXISTS headquarters TEXT DEFAULT ''`);
+await pool.query(`ALTER TABLE contacts ADD COLUMN IF NOT EXISTS website TEXT DEFAULT ''`);
+await pool.query(`ALTER TABLE contacts ADD COLUMN IF NOT EXISTS year_founded TEXT DEFAULT ''`);
+await pool.query(`ALTER TABLE contacts ADD COLUMN IF NOT EXISTS next_meeting TEXT DEFAULT ''`);
+await pool.query(`ALTER TABLE contacts ADD COLUMN IF NOT EXISTS insights TEXT DEFAULT ''`);
+
 await pool.query(`
   CREATE TABLE IF NOT EXISTS calendar_connections (
     id SERIAL PRIMARY KEY,

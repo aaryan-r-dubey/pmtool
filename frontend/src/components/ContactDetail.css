@@ -89,6 +89,8 @@
 }
 
 .meta-value { font-size: 13px; color: var(--text); font-weight: 500; overflow-wrap: break-word; }
+.meta-value.link { color: var(--accent); text-decoration: none; }
+.meta-value.link:hover { text-decoration: underline; }
 
 .status-chip {
   font-size: 11px;
@@ -145,6 +147,17 @@
   display: flex;
   flex-direction: column;
   gap: 5px;
+}
+
+.edit-section-label {
+  font-size: 11px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.6px;
+  color: var(--text-muted);
+  border-top: 1px solid var(--border);
+  padding-top: 12px;
+  margin-top: 4px;
 }
 
 .edit-grid label span, .desc-label span {

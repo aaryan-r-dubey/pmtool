@@ -138,25 +138,36 @@ app.get('/api/contacts', async (req, res) => {
 });
 
 app.post('/api/contacts', async (req, res) => {
-  const { name, type = 'founder', startup = '', role = '', email = '', phone = '', connected_on = '', status = 'active', notes = '' } = req.body;
+  const {
+    name, type = 'founder', startup = '', role = '', email = '', phone = '', connected_on = '', status = 'active', notes = '',
+    founders = '', decision = '', outreach_status = '', stage = '', category = '', industry = '', headquarters = '', website = '', year_founded = '', next_meeting = '', insights = '',
+  } = req.body;
   if (!name?.trim()) return res.status(400).json({ error: 'Name is required' });
   const contact = await one(
-    'INSERT INTO contacts (name, type, startup, role, email, phone, connected_on, status, notes) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9) RETURNING *',
-    [name.trim(), type, startup, role, email, phone, connected_on, status, notes]
+    `INSERT INTO contacts (
+      name, type, startup, role, email, phone, connected_on, status, notes,
+      founders, decision, outreach_status, stage, category, industry, headquarters, website, year_founded, next_meeting, insights
+    ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $20) RETURNING *`,
+    [name.trim(), type, startup, role, email, phone, connected_on, status, notes,
+     founders, decision, outreach_status, stage, category, industry, headquarters, website, year_founded, next_meeting, insights]
   );
   res.status(201).json(contact);
 });
 
 app.patch('/api/contacts/:id', async (req, res) => {
   const { id } = req.params;
-  const { name, type, startup, role, email, phone, connected_on, status, notes } = req.body;
+  const {
+    name, type, startup, role, email, phone, connected_on, status, notes,
+    founders, decision, outreach_status, stage, category, industry, headquarters, website, year_founded, next_meeting, insights,
+  } = req.body;
   const contact = await one('SELECT * FROM contacts WHERE id = $1', [id]);
   if (!contact) return res.status(404).json({ error: 'Contact not found' });
   const updated = await one(
     `UPDATE contacts SET
       name = $1, type = $2, startup = $3, role = $4, email = $5, phone = $6, connected_on = $7, status = $8, notes = $9,
+      founders = $10, decision = $11, outreach_status = $12, stage = $13, category = $14, industry = $15, headquarters = $16, website = $17, year_founded = $18, next_meeting = $19, insights = $20,
       updated_at = now()
-    WHERE id = $10 RETURNING *`,
+    WHERE id = $21 RETURNING *`,
     [
       name ?? contact.name,
       type ?? contact.type,
@@ -167,6 +178,17 @@ app.patch('/api/contacts/:id', async (req, res) => {
       connected_on ?? contact.connected_on,
       status ?? contact.status,
       notes ?? contact.notes,
+      founders ?? contact.founders,
+      decision ?? contact.decision,
+      outreach_status ?? contact.outreach_status,
+      stage ?? contact.stage,
+      category ?? contact.category,
+      industry ?? contact.industry,
+      headquarters ?? contact.headquarters,
+      website ?? contact.website,
+      year_founded ?? contact.year_founded,
+      next_meeting ?? contact.next_meeting,
+      insights ?? contact.insights,
       id,
     ]
   );
