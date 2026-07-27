@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import { apiUrl } from '../api';
+import ContactDetail from './ContactDetail';
 import './Contacts.css';
 
 const TABS = [
@@ -20,9 +21,8 @@ export default function Contacts() {
   const [search, setSearch] = useState('');
   const [showForm, setShowForm] = useState(false);
   const [form, setForm] = useState(EMPTY_FORM);
-  const [editingId, setEditingId] = useState(null);
-  const [editForm, setEditForm] = useState({});
   const [saving, setSaving] = useState(false);
+  const [selected, setSelected] = useState(null);
 
   useEffect(() => { fetchContacts(); }, []);
 
@@ -62,25 +62,6 @@ export default function Contacts() {
     }
   }
 
-  async function saveEdit(id) {
-    setSaving(true);
-    try {
-      const res = await fetch(apiUrl(`/api/contacts/${id}`), {
-        method: 'PATCH',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(editForm),
-      });
-      if (!res.ok) throw new Error();
-      const updated = await res.json();
-      setContacts(prev => prev.map(c => c.id === id ? updated : c));
-      setEditingId(null);
-    } catch {
-      alert('Failed to save changes.');
-    } finally {
-      setSaving(false);
-    }
-  }
-
   async function deleteContact(id) {
     if (!confirm('Delete this contact?')) return;
     try {
@@ -92,9 +73,21 @@ export default function Contacts() {
     }
   }
 
-  function startEdit(c) {
-    setEditingId(c.id);
-    setEditForm({ name: c.name, type: c.type, startup: c.startup, role: c.role, email: c.email, phone: c.phone, connected_on: c.connected_on, status: c.status, notes: c.notes });
+  if (selected) {
+    return (
+      <ContactDetail
+        contact={selected}
+        onBack={() => setSelected(null)}
+        onUpdate={updated => {
+          setContacts(prev => prev.map(c => c.id === updated.id ? updated : c));
+          setSelected(updated);
+        }}
+        onDelete={id => {
+          setContacts(prev => prev.filter(c => c.id !== id));
+          setSelected(null);
+        }}
+      />
+    );
   }
 
   const filtered = contacts.filter(c => {
@@ -121,7 +114,7 @@ export default function Contacts() {
 
       <div className="tabs">
         {TABS.map(t => (
-          <button key={t.key} className={`tab-btn ${tab === t.key ? 'active' : ''}`} onClick={() => { setTab(t.key); setShowForm(false); setEditingId(null); }}>
+          <button key={t.key} className={`tab-btn ${tab === t.key ? 'active' : ''}`} onClick={() => { setTab(t.key); setShowForm(false); }}>
             {t.label}
           </button>
         ))}
@@ -200,64 +193,21 @@ export default function Contacts() {
 
         {filtered.map(c => (
           <div key={c.id} className="contact-row-wrapper">
-            {editingId === c.id ? (
-              <div className="table-row edit-row">
-                <div className="edit-main">
-                  <div className="form-row">
-                    <input className="form-input flex-1" value={editForm.name} onChange={e => setEditForm(f => ({ ...f, name: e.target.value }))} autoFocus placeholder="Name" />
-                    <select className="form-input" value={editForm.type} onChange={e => setEditForm(f => ({ ...f, type: e.target.value }))} title="Category">
-                      <option value="founder">Founder</option>
-                      <option value="startup">Startup</option>
-                      <option value="contact">Contact</option>
-                    </select>
-                  </div>
-                  <div className="form-row">
-                    <input className="form-input flex-1" value={editForm.startup} onChange={e => setEditForm(f => ({ ...f, startup: e.target.value }))} placeholder="Startup" />
-                    <input className="form-input flex-1" value={editForm.role} onChange={e => setEditForm(f => ({ ...f, role: e.target.value }))} placeholder="Role" />
-                  </div>
-                  <div className="form-row">
-                    <input className="form-input flex-1" value={editForm.email} onChange={e => setEditForm(f => ({ ...f, email: e.target.value }))} placeholder="Email" />
-                    <input className="form-input flex-1" value={editForm.phone} onChange={e => setEditForm(f => ({ ...f, phone: e.target.value }))} placeholder="Phone" />
-                    <input className="form-input" type="date" value={editForm.connected_on} onChange={e => setEditForm(f => ({ ...f, connected_on: e.target.value }))} />
-                  </div>
-                  <div className="form-row">
-                    <select className="form-input flex-1" value={editForm.status} onChange={e => setEditForm(f => ({ ...f, status: e.target.value }))}>
-                      <option value="active">Active</option>
-                      <option value="cold">Cold</option>
-                      <option value="archived">Archived</option>
-                    </select>
-                  </div>
-                  <textarea
-                    className="form-input form-textarea"
-                    value={editForm.notes}
-                    onChange={e => setEditForm(f => ({ ...f, notes: e.target.value }))}
-                    placeholder="Notes"
-                    rows={2}
-                  />
-                  <div className="row-actions" style={{marginTop: '4px'}}>
-                    <button className="action-btn save" onClick={() => saveEdit(c.id)} disabled={saving}>Save</button>
-                    <button className="action-btn cancel" onClick={() => setEditingId(null)}>Cancel</button>
-                  </div>
-                </div>
+            <div className="table-row" title={c.notes || ''} onClick={() => setSelected(c)} style={{ cursor: 'pointer' }}>
+              <div className="contact-name-cell">
+                <span className="contact-name-text">{c.name}</span>
+                {c.role && <span className="contact-sub">{c.role}</span>}
+                {c.notes && <span className="contact-notes-preview">{c.notes}</span>}
               </div>
-            ) : (
-              <div className="table-row" title={c.notes || ''}>
-                <div className="contact-name-cell">
-                  <span className="contact-name-text">{c.name}</span>
-                  {c.role && <span className="contact-sub">{c.role}</span>}
-                  {c.notes && <span className="contact-notes-preview">{c.notes}</span>}
-                </div>
-                <span className="cell-muted">{c.startup || '—'}</span>
-                <span className="cell-muted">{c.email || '—'}</span>
-                <span className="cell-muted">{c.phone || '—'}</span>
-                <span className="cell-muted">{c.connected_on || '—'}</span>
-                <span className={`status-chip ${c.status}`}>{c.status}</span>
-                <div className="row-actions">
-                  <button className="action-btn edit" onClick={() => startEdit(c)} title="Edit">✎</button>
-                  <button className="action-btn delete" onClick={() => deleteContact(c.id)} title="Delete">✕</button>
-                </div>
+              <span className="cell-muted">{c.startup || '—'}</span>
+              <span className="cell-muted">{c.email || '—'}</span>
+              <span className="cell-muted">{c.phone || '—'}</span>
+              <span className="cell-muted">{c.connected_on || '—'}</span>
+              <span className={`status-chip ${c.status}`}>{c.status}</span>
+              <div className="row-actions">
+                <button className="action-btn delete" onClick={e => { e.stopPropagation(); deleteContact(c.id); }} title="Delete">✕</button>
               </div>
-            )}
+            </div>
           </div>
         ))}
       </div>
