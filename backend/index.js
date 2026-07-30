@@ -492,6 +492,20 @@ app.delete('/api/folders/:id', async (req, res) => {
   res.json({ success: true });
 });
 
+app.patch('/api/folders/:id', async (req, res) => {
+  const { name } = req.body;
+  if (!name?.trim()) return res.status(400).json({ error: 'Name is required' });
+  const folder = await one('SELECT * FROM folders WHERE id = $1', [req.params.id]);
+  if (!folder) return res.status(404).json({ error: 'Not found' });
+  if (folder.drive_folder_id && googleDrive.isAuthorized()) {
+    try { await googleDrive.renameProjectFolder(folder.drive_folder_id, name.trim()); } catch (err) {
+      return res.status(500).json({ error: 'Failed to rename folder in Google Drive: ' + err.message });
+    }
+  }
+  const updated = await one('UPDATE folders SET name = $1 WHERE id = $2 RETURNING *', [name.trim(), req.params.id]);
+  res.json(updated);
+});
+
 // Files
 app.get('/api/files', async (req, res) => {
   const { project, folder } = req.query;
@@ -564,6 +578,20 @@ app.delete('/api/files/:id', async (req, res) => {
   if (file.drive_file_id) await googleDrive.deleteFile(file.drive_file_id);
   await query('DELETE FROM files WHERE id = $1', [req.params.id]);
   res.json({ success: true });
+});
+
+app.patch('/api/files/:id', async (req, res) => {
+  const { original_name } = req.body;
+  if (!original_name?.trim()) return res.status(400).json({ error: 'Name is required' });
+  const file = await one('SELECT * FROM files WHERE id = $1', [req.params.id]);
+  if (!file) return res.status(404).json({ error: 'Not found' });
+  if (file.drive_file_id && googleDrive.isAuthorized()) {
+    try { await googleDrive.renameFile(file.drive_file_id, original_name.trim()); } catch (err) {
+      return res.status(500).json({ error: 'Failed to rename file in Google Drive: ' + err.message });
+    }
+  }
+  const updated = await one('UPDATE files SET original_name = $1 WHERE id = $2 RETURNING *', [original_name.trim(), req.params.id]);
+  res.json(updated);
 });
 
 const PORT = process.env.PORT || 3001;

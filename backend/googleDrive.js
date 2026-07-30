@@ -108,6 +108,10 @@ export async function renameProjectFolder(folderId, newName) {
   await drive.files.update({ fileId: folderId, requestBody: { name: newName } });
 }
 
+export async function renameFile(fileId, newName) {
+  await drive.files.update({ fileId, requestBody: { name: newName } });
+}
+
 export async function trashFolder(folderId) {
   await drive.files.update({ fileId: folderId, requestBody: { trashed: true } });
 }

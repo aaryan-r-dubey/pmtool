@@ -153,6 +153,41 @@ export default function DriveFiles() {
     setRealFolders(prev => prev.filter(f => f.id !== id));
   }
 
+  async function renameRealFolder(folder) {
+    const name = prompt('Rename folder', folder.name);
+    if (!name || !name.trim() || name.trim() === folder.name) return;
+    try {
+      const res = await fetch(apiUrl(`/api/folders/${folder.id}`), {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ name: name.trim() }),
+      });
+      if (!res.ok) throw new Error((await res.json().catch(() => ({}))).error || 'Rename failed.');
+      const updated = await res.json();
+      setRealFolders(prev => prev.map(f => f.id === updated.id ? updated : f).sort((a, b) => a.name.localeCompare(b.name)));
+    } catch (err) {
+      alert(err.message || 'Failed to rename folder.');
+    }
+  }
+
+  async function renameFile(file) {
+    const name = prompt('Rename file', file.original_name);
+    if (!name || !name.trim() || name.trim() === file.original_name) return;
+    try {
+      const res = await fetch(apiUrl(`/api/files/${file.id}`), {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ original_name: name.trim() }),
+      });
+      if (!res.ok) throw new Error((await res.json().catch(() => ({}))).error || 'Rename failed.');
+      const updated = await res.json();
+      setFiles(prev => prev.map(f => f.id === updated.id ? updated : f));
+      setFolderFiles(prev => prev.map(f => f.id === updated.id ? updated : f));
+    } catch (err) {
+      alert(err.message || 'Failed to rename file.');
+    }
+  }
+
   async function uploadFiles(e) {
     e.preventDefault();
     if (!selectedFiles.length) return;
@@ -421,12 +456,20 @@ export default function DriveFiles() {
                 <span className="folder-name">{folder.name}</span>
                 <span className="folder-meta">Folder</span>
               </div>
-              <button
-                type="button"
-                className="action-btn delete folder-delete-btn"
-                title="Delete"
-                onClick={e => { e.stopPropagation(); deleteRealFolder(folder.id); }}
-              >✕</button>
+              <div className="folder-card-actions">
+                <button
+                  type="button"
+                  className="action-btn"
+                  title="Rename"
+                  onClick={e => { e.stopPropagation(); renameRealFolder(folder); }}
+                >✎</button>
+                <button
+                  type="button"
+                  className="action-btn delete folder-delete-btn"
+                  title="Delete"
+                  onClick={e => { e.stopPropagation(); deleteRealFolder(folder.id); }}
+                >✕</button>
+              </div>
             </div>
           ))}
           {folders.map(folder => (
@@ -450,12 +493,20 @@ export default function DriveFiles() {
                 <span className="folder-name">{folder.name}</span>
                 <span className="folder-meta">Folder</span>
               </div>
-              <button
-                type="button"
-                className="action-btn delete folder-delete-btn"
-                title="Delete"
-                onClick={e => { e.stopPropagation(); deleteRealFolder(folder.id); }}
-              >✕</button>
+              <div className="folder-card-actions">
+                <button
+                  type="button"
+                  className="action-btn"
+                  title="Rename"
+                  onClick={e => { e.stopPropagation(); renameRealFolder(folder); }}
+                >✎</button>
+                <button
+                  type="button"
+                  className="action-btn delete folder-delete-btn"
+                  title="Delete"
+                  onClick={e => { e.stopPropagation(); deleteRealFolder(folder.id); }}
+                >✕</button>
+              </div>
             </div>
           ))}
         </div>
@@ -486,6 +537,7 @@ export default function DriveFiles() {
                 <span>{f.uploaded_by || '—'}</span>
                 <span>{formatSize(f.size)}</span>
                 <div className="file-card-actions">
+                  <button className="action-btn" onClick={e => { e.stopPropagation(); renameFile(f); }} title="Rename">✎</button>
                   <a href={apiUrl(`/api/files/${f.id}/download`)} className="action-btn-link" title="Download" onClick={e => e.stopPropagation()}>⬇</a>
                   <button className="action-btn delete" onClick={e => { e.stopPropagation(); deleteFile(f.id); }} title="Delete">✕</button>
                 </div>
@@ -523,6 +575,7 @@ export default function DriveFiles() {
               <span className="cell-muted">{formatSize(f.size)}</span>
               <span className="cell-muted">{timeAgo(f.created_at)}</span>
               <div className="row-actions">
+                <button className="action-btn" onClick={e => { e.stopPropagation(); renameFile(f); }} title="Rename">✎</button>
                 <a href={apiUrl(`/api/files/${f.id}/download`)} className="action-btn-link" title="Download" onClick={e => e.stopPropagation()}>⬇</a>
                 <button className="action-btn delete" onClick={e => { e.stopPropagation(); deleteFile(f.id); }} title="Delete">✕</button>
               </div>
