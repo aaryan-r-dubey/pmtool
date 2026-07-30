@@ -372,13 +372,19 @@ export default function ProjectDetail({ project: initial, onBack, onUpdate }) {
                   </div>
                 ))}
                 {files.map(f => (
-                  <div key={f.id} className="proj-file-row">
+                  <div
+                    key={f.id}
+                    className="proj-file-row"
+                    onClick={() => window.open(f.drive_link || apiUrl(`/api/files/${f.id}/download`), '_blank', 'noopener,noreferrer')}
+                    style={{ cursor: 'pointer' }}
+                    title="Open in Drive"
+                  >
                     <span className="proj-file-name">{f.original_name}</span>
                     <span className="proj-task-owner">{f.uploaded_by || '—'}</span>
                     <span className="proj-task-owner">{formatSize(f.size)}</span>
                     <div className="row-actions">
-                      <a href={apiUrl(`/api/files/${f.id}/download`)} className="action-btn-link" title="Download">⬇</a>
-                      <button type="button" className="action-btn delete" onClick={() => deleteFile(f.id)} title="Delete">✕</button>
+                      <a href={apiUrl(`/api/files/${f.id}/download`)} className="action-btn-link" title="Download" onClick={e => e.stopPropagation()}>⬇</a>
+                      <button type="button" className="action-btn delete" onClick={e => { e.stopPropagation(); deleteFile(f.id); }} title="Delete">✕</button>
                     </div>
                   </div>
                 ))}
