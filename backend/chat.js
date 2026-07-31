@@ -67,26 +67,47 @@ const TOOLS = [
   },
 ];
 
-function scoreFile(tokens, file) {
-  const haystack = `${file.original_name} ${file.project || ''} ${file.folder_name || ''}`.toLowerCase();
-  return tokens.filter(t => haystack.includes(t)).length;
-}
-
 async function findFiles(input) {
   const tokens = String(input.query || '').toLowerCase().split(/\s+/).filter(Boolean);
   if (!tokens.length) return { matches: [] };
+
   const files = await query(`
     SELECT f.id, f.original_name, f.project, f.drive_link, f.mime_type, fo.name AS folder_name
     FROM files f LEFT JOIN folders fo ON f.folder_id = fo.id
     ORDER BY f.created_at DESC
   `);
+  const haystacks = files.map(f => `${f.original_name} ${f.project || ''} ${f.folder_name || ''}`.toLowerCase());
+
+  // Rare, specific words (e.g. a project name) should count for more than
+  // generic ones (e.g. "meet", "notes") that show up in lots of files.
+  const weights = tokens.map(t => {
+    const df = haystacks.filter(h => h.includes(t)).length;
+    return df > 0 ? 1 / df : 0;
+  });
+
   const scored = files
-    .map(f => ({ file: f, score: scoreFile(tokens, f) }))
-    .filter(s => s.score > 0)
-    .sort((a, b) => b.score - a.score)
-    .slice(0, 8)
-    .map(s => s.file);
-  return { matches: scored };
+    .map((file, i) => {
+      const h = haystacks[i];
+      let matchedCount = 0;
+      let score = 0;
+      tokens.forEach((t, j) => {
+        if (h.includes(t)) { matchedCount++; score += weights[j]; }
+      });
+      return { file, matchedCount, score };
+    })
+    .filter(s => s.matchedCount > 0);
+
+  // Only return the best-coverage tier (files matching the most query
+  // words), relaxing one word at a time only if nothing matches them all —
+  // otherwise a query with one distinctive word pulls in every file that
+  // merely shares the generic words alongside it.
+  let tier = [];
+  for (let threshold = tokens.length; threshold > 0 && tier.length === 0; threshold--) {
+    tier = scored.filter(s => s.matchedCount >= threshold);
+  }
+
+  const matches = tier.sort((a, b) => b.score - a.score).slice(0, 8).map(s => s.file);
+  return { matches };
 }
 
 async function createCalendarEvent(input) {
