@@ -5,12 +5,33 @@ import multer from 'multer';
 import { query, one } from './db.js';
 import * as googleDrive from './googleDrive.js';
 import * as googleCalendar from './googleCalendar.js';
+import * as chat from './chat.js';
 
 const upload = multer({ storage: multer.memoryStorage(), limits: { fileSize: 50 * 1024 * 1024 } });
 
 const app = express();
 app.use(cors());
 app.use(express.json());
+
+app.get('/api/chat/status', (req, res) => {
+  res.json({ configured: chat.isConfigured() });
+});
+
+app.post('/api/chat', async (req, res) => {
+  if (!chat.isConfigured()) {
+    return res.status(503).json({ error: 'Chat is not configured. Set ANTHROPIC_API_KEY in backend/.env.' });
+  }
+  const { messages } = req.body;
+  if (!Array.isArray(messages) || messages.length === 0) {
+    return res.status(400).json({ error: 'messages is required' });
+  }
+  try {
+    const result = await chat.runChat(messages);
+    res.json(result);
+  } catch (err) {
+    res.status(500).json({ error: 'Chat failed: ' + err.message });
+  }
+});
 
 app.get('/api/tasks', async (req, res) => {
   const tasks = await query('SELECT * FROM tasks ORDER BY created_at DESC');

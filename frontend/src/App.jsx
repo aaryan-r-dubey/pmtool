@@ -7,6 +7,7 @@ import PendingTasks from './components/PendingTasks';
 import Calendar from './components/Calendar';
 import DriveFiles from './components/DriveFiles';
 import Contacts from './components/Contacts';
+import Chatbot from './components/Chatbot';
 import './App.css';
 
 export default function App() {
@@ -20,6 +21,7 @@ export default function App() {
     calendar: <Calendar />,
     files: <DriveFiles />,
     contacts: <Contacts />,
+    assistant: <Chatbot />,
   };
 
   return (
