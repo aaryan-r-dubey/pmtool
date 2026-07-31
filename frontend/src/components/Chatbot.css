@@ -1,4 +1,7 @@
 .chat-page { padding: 28px 32px; max-width: 900px; display: flex; flex-direction: column; height: calc(100vh - 56px); }
+.chat-page.embedded { padding: 0; max-width: none; height: 460px; }
+.chat-page.embedded .chat-messages { padding: 16px; }
+.chat-page.embedded .chat-window { border: 1px solid var(--border); border-radius: 8px; box-shadow: none; background: var(--bg); }
 
 .page-header { margin-bottom: 16px; }
 .page-header h1 { font-size: 22px; font-weight: 600; }

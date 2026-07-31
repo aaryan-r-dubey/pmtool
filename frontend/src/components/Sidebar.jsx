@@ -9,7 +9,6 @@ const nav = [
   { key: 'calendar', label: 'Calendar', icon: '◻' },
   { key: 'files', label: 'Drive Files', icon: '◈' },
   { key: 'contacts', label: 'Application Database', icon: '☰' },
-  { key: 'assistant', label: 'Assistant', icon: '✦' },
 ];
 
 export default function Sidebar({ active, onNav }) {

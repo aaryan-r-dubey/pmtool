@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { events, driveFiles } from '../data';
 import { apiUrl } from '../api';
+import Chatbot from './Chatbot';
 import './Dashboard.css';
 
 const today = new Date().toISOString().split('T')[0];
@@ -62,6 +63,13 @@ export default function Dashboard() {
       </div>
 
       <div className="dashboard-grid">
+        <section className="card span-full">
+          <div className="card-header">
+            <h2>Assistant</h2>
+          </div>
+          <Chatbot embedded />
+        </section>
+
         <section className="card">
           <div className="card-header">
             <h2>Active Tasks</h2>

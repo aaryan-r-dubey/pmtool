@@ -11,7 +11,7 @@ function fileIcon(mime) {
   return '📁';
 }
 
-export default function Chatbot() {
+export default function Chatbot({ embedded = false }) {
   const [status, setStatus] = useState(null);
   const [messages, setMessages] = useState([
     { role: 'assistant', content: "Hi — I can help you find files you've uploaded, or create a calendar event or task. What do you need?" },
@@ -53,13 +53,15 @@ export default function Chatbot() {
   }
 
   return (
-    <div className="chat-page">
-      <div className="page-header">
-        <div>
-          <h1>Assistant</h1>
-          <p className="page-sub">Find files, schedule meetings, or add tasks by chatting.</p>
+    <div className={embedded ? 'chat-page embedded' : 'chat-page'}>
+      {!embedded && (
+        <div className="page-header">
+          <div>
+            <h1>Assistant</h1>
+            <p className="page-sub">Find files, schedule meetings, or add tasks by chatting.</p>
+          </div>
         </div>
-      </div>
+      )}
 
       {status && !status.configured && (
         <div className="chat-connect-banner">
